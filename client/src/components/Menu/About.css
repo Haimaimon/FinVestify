@@ -1,0 +1,74 @@
+.about-container {
+    font-family: 'Roboto', sans-serif;
+    background: linear-gradient(135deg, #4c7cf3, #1e255e);
+    color: #ffffff;
+    padding: 40px;
+  }
+  
+  .hero-section {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 10px;
+  }
+  
+  .hero-title {
+    font-size: 3em;
+    font-weight: bold;
+    color: #f3e74c;
+    animation: fadeInDown 1s ease-out;
+  }
+  
+  .hero-subtitle {
+    font-size: 1.2em;
+    color: #c9d1d9;
+    margin-top: 10px;
+  }
+  
+  .explore-button {
+    margin-top: 20px;
+    background-color: #ff5757;
+    color: white;
+    font-weight: bold;
+    transition: transform 0.3s ease;
+  }
+  
+  .explore-button:hover {
+    background-color: #ff1c1c;
+    transform: scale(1.1);
+  }
+  
+  .content-section {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+  
+  .info-card {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    color: #ffffff;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transition: transform 0.4s ease;
+    text-align: center;
+    padding: 20px;
+  }
+  
+  .info-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  }
+  
+  .info-icon {
+    font-size: 3em;
+    color: #ffeb3b;
+    margin-bottom: 10px;
+  }
+  
+  @keyframes fadeInDown {
+    0% { opacity: 0; transform: translateY(-20px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  
