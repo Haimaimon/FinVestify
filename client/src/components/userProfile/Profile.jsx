@@ -56,10 +56,18 @@ function Profile() {
   });
 
   const handleDeposit = () => {
+    if(amount <= 0 ){
+      toast.error("Please enter a positive amount");
+      return;
+    }
     depositMutation.mutate(amount);
   };
 
   const handleWithdraw = () => {
+    if (amount <= 0){
+      toast.error("Please enter a positive amount");
+      return;
+    }
     withdrawMutation.mutate(amount);
   };
   return (
@@ -82,6 +90,7 @@ function Profile() {
           variant="outlined"
           fullWidth
           style={{ marginBottom: '10px' }}
+          inputProps={{ min: 0 }}
         />
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
           <Button variant="contained" color="primary" onClick={handleDeposit}>Deposit</Button>

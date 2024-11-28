@@ -10,47 +10,44 @@ function StockChart({ ticker }) {
   const lastCandleRef = useRef(null);
 
   useEffect(() => {
-    // Clean up any existing chart instance before creating a new one
+    // ננקה את הגרף הקודם, אם קיים
     if (chartRef.current) {
-        chartRef.current.remove();
-        chartRef.current = null;
-        candleSeriesRef.current = null;
-      }
-
-    // Initialize the chart
+      chartRef.current.remove();
+      chartRef.current = null;
+      candleSeriesRef.current = null;
+    }
+  
+    // יצירת הגרף והנתונים מחדש
     const chart = createChart(chartContainerRef.current, { width: 600, height: 400 });
+    chartRef.current = chart; // שמירה על הרפרנס של הגרף החדש
     const candleSeries = chart.addCandlestickSeries();
-
-    // Fetch historical data and initialize chart
+    candleSeriesRef.current = candleSeries;
+  
     const fetchHistoricalData = async () => {
       try {
         const response = await axios.get(`/portfolio/stock/${ticker}`);
         const candlestickData = response.data.prices.map(d => ({
-          time: d.date.split('T')[0],  // Only take yyyy-mm-dd part
+          time: d.date.split('T')[0],
           open: d.open,
           high: d.high,
           low: d.low,
           close: d.close,
         }));
         candleSeries.setData(candlestickData);
-
-        // Store the last candle data to update it in real-time
         lastCandleRef.current = candlestickData[candlestickData.length - 1];
       } catch (error) {
         console.error('Error loading historical data:', error);
       }
     };
-
+  
     fetchHistoricalData();
-
-    // Update latest price and adjust the last candlestick every second
+  
     const intervalId = setInterval(async () => {
       try {
         const response = await axios.get(`/portfolio/stock/${ticker}/latest`);
         const newPrice = response.data.currentPrice;
         setLatestPrice(newPrice);
-
-        // Update the current candlestick
+  
         if (lastCandleRef.current) {
           const updatedCandle = {
             ...lastCandleRef.current,
@@ -59,15 +56,14 @@ function StockChart({ ticker }) {
             low: Math.min(lastCandleRef.current.low, newPrice),
           };
           candleSeries.update(updatedCandle);
-          lastCandleRef.current = updatedCandle;  // Keep track of the updated last candle
+          lastCandleRef.current = updatedCandle;
         }
       } catch (error) {
         console.error('Error fetching latest price:', error);
       }
-    }, 1000);
-
+    }, 200);
+  
     return () => {
-      // Clean up interval and chart on unmount
       clearInterval(intervalId);
       if (chartRef.current) {
         chartRef.current.remove();
@@ -75,7 +71,7 @@ function StockChart({ ticker }) {
       }
     };
   }, [ticker]);
-
+  
   return (
     <div>
       <div ref={chartContainerRef}></div>

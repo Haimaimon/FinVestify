@@ -14,7 +14,9 @@ import StockPredictionPage from "./components/PredictCompo/StockPredictionPage";
 import Favorites from "./components/Favorites/Favorites";
 import About from "./components/Menu/About";
 import StrategyTrade from "./components/Menu/StrategyTrade";
-
+import StockNews from "./components/NewsOfStock/StockNews";
+import PreStockNews from "./components/PredictNews/PreStockNews";
+import SentimentAnalysis from "./components/PredictNews/SentimentAnalysis";
 const queryClient = new QueryClient();
 
 function App() {
@@ -57,6 +59,9 @@ function App() {
           <Route path="/strategytrade" element={<StrategyTrade />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/favorites" element={<Favorites />} />
+          <Route path="/stocknews" element={<StockNews />} />
+          <Route path="/prestocknews" element={<PreStockNews />} />
+          <Route path="/sentiment" element={<SentimentAnalysis />} />
           <Route path="/about" element={<About />} />
         </Routes>
         {isAuthOpen && (

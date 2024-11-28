@@ -5,6 +5,7 @@ const userRoute = require("./routes/userRoute");
 const portfolioRoute = require('./routes/portfolioRoute');
 const transactionRoute = require('./routes/transactionRoute');
 const alertRoute = require('./routes/alertRoute');
+const newsRoute = require('./routes/newsRoute');
 
 const { getNewsForStock } = require('./controllers/newsController');
 const app = express();
@@ -19,6 +20,7 @@ app.use("/api/users", userRoute);
 app.use("/api", portfolioRoute);
 app.use('/api/transactions', transactionRoute);
 app.use('/api',alertRoute);
+app.use("/api/news",newsRoute);
 
 app.get('/api/news', getNewsForStock);
 

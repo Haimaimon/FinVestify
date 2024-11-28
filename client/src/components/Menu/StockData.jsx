@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import axios from '../../features/axiosConfig';
 import { createChart } from 'lightweight-charts';
-import { TextField, Button, InputLabel, Select, MenuItem, Typography } from "@mui/material";
+import { TextField, Button, InputLabel, Select, MenuItem } from "@mui/material";
 import {  toast } from 'react-toastify';
 import { TrendingUp, TrendingDown, ShoppingCart, Close } from '@mui/icons-material';
 import 'react-toastify/dist/ReactToastify.css';

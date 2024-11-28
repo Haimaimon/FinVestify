@@ -1,6 +1,6 @@
 import React,{ useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, User ,LogOut} from 'lucide-react';
+import { Menu, User ,LogOut,Newspaper} from 'lucide-react';
 import Button from '@mui/material/Button';
 import { Favorite } from '@material-ui/icons';
 import '../src/index.css';
@@ -42,6 +42,21 @@ export default function Navbar({ openAuthForm, isLoggedIn, handleLogout }) {
             </>
           ) : (
             <div className="profile">
+              <Link to="/sentiment">
+                <Button variant="outlined" startIcon={<Newspaper />}>
+                    Senti
+                </Button>
+              </Link>
+              <Link to="/prestocknews">
+                <Button variant="outlined" startIcon={<Newspaper />}>
+                  Pre Stcok News
+                </Button>
+              </Link>
+              <Link to="/stocknews">
+                <Button variant="outlined" startIcon={<Newspaper />}>
+                  Stcok News
+                </Button>
+              </Link>
               <Link to="/favorites">
                 <Button variant="outlined" startIcon={<Favorite />}>
                   Favorites

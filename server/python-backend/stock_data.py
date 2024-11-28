@@ -7,64 +7,311 @@ from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
 from ta import add_all_ta_features
 from ta.trend import SMAIndicator
+import requests
+from transformers import pipeline
+from datetime import datetime, timedelta
+
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
+# Hugging Face Sentiment Analysis Pipeline
+sentiment_analyzer = pipeline("sentiment-analysis")
 
-def calculate_strategy(df, buy_condition, sell_condition):
-    buy_signals = []
-    sell_signals = []
-    current_position = None
-    profit_loss_total = 0
+# NewsAPI Configuration
+NEWS_API_KEY = "941c905a04a24e6c8edee618209cf60e"
+NEWS_API_URL = "https://newsapi.org/v2/everything"
 
-    for i in range(1, len(df)):
-        if buy_condition(df, i):
-            buy_signals.append({'date': df.index[i].strftime('%Y-%m-%d'), 'price': df['Close'][i]})
-            current_position = df['Close'][i]
+# -----------------------------------------------
+# Utility Functions
+# -----------------------------------------------
+
+def fetch_stock_news(stock_name):
+    """
+    Fetches news articles related to the given stock using NewsAPI.
+    """
+    params = {
+        "q": stock_name,
+        "apiKey": NEWS_API_KEY,
+        "language": "en",
+        "sortBy": "relevance"
+    }
+    response = requests.get(NEWS_API_URL, params=params)
+    if response.status_code != 200:
+        raise Exception("Failed to fetch news")
+    return response.json().get("articles", [])
+
+def analyze_sentiment_with_huggingface(content):
+    """
+    Analyzes the sentiment of a given text using Hugging Face.
+    """
+    try:
+        result = sentiment_analyzer(content[:512])  # Hugging Face supports up to 512 tokens
+        sentiment = result[0]["label"]
+        confidence = result[0]["score"]
+        return sentiment, confidence
+    except Exception as e:
+        print(f"Error analyzing sentiment: {e}")
+        return "Neutral", 0.0
+
+def fetch_historical_data(stock_name, period="6mo"):
+    """
+    Fetches historical stock data for the given stock using yfinance.
+    """
+    print(f"Fetching historical data for stock: {stock_name}, period: {period}")
+    try:
+        # Fetch stock data with the specified period
+        stock_data = yf.download(stock_name, period=period, interval="1d", progress=False)
+        print(f"Fetched data length for {period}: {len(stock_data)} rows")  # Log the length of fetched data
         
-        elif sell_condition(df, i) and current_position is not None:
-            profit_loss = df['Close'][i] - current_position
-            sell_signals.append({'date': df.index[i].strftime('%Y-%m-%d'), 'price': df['Close'][i], 'profit_loss': profit_loss})
-            profit_loss_total += profit_loss
-            current_position = None
+        if stock_data.empty:
+            raise ValueError(f"No historical data found for stock: {stock_name}, period: {period}")
 
-    return buy_signals, sell_signals, profit_loss_total
+        # Handle MultiIndex columns
+        if isinstance(stock_data.columns, pd.MultiIndex):
+            stock_data.columns = stock_data.columns.droplevel(0)
 
+        # Standardize column names
+        stock_data.columns = ["Adj_Close", "Close", "High", "Low", "Open", "Volume"]
+
+        # Reset index to make `Date` a column
+        stock_data.reset_index(inplace=True)
+
+        print(f"First few rows of fetched data:\n{stock_data.head()}")  # Log the first few rows of data
+        return stock_data
+    except Exception as e:
+        print(f"Error fetching historical data: {e}")
+        return pd.DataFrame()
+
+
+
+
+def calculate_historical_impact(stock_name, published_at, sentiment):
+    """
+    Calculates the impact of sentiment on stock price based on historical data.
+    """
+    try:
+        published_date = published_at.split("T")[0]
+        next_day_date = (datetime.strptime(published_date, "%Y-%m-%d") + timedelta(days=2)).strftime("%Y-%m-%d")
+        stock_data = yf.download(stock_name, start=published_date, end=next_day_date, progress=False)
+
+        if stock_data.empty or "Close" not in stock_data.columns or stock_data["Close"].empty:
+            return f"No valid close price data for {stock_name} on {published_date} or the next day"
+
+        close_price = stock_data["Close"].iloc[0]
+        next_day_close_price = stock_data["Close"].iloc[-1]
+        price_change = ((next_day_close_price - close_price) / close_price) * 100
+
+        if sentiment == "POSITIVE" and price_change > 0:
+            return f"Positive impact: Price increased by {price_change:.2f}%"
+        elif sentiment == "NEGATIVE" and price_change < 0:
+            return f"Negative impact: Price decreased by {abs(price_change):.2f}%"
+        elif sentiment == "POSITIVE" and price_change < 0:
+            return f"Mismatch: Sentiment was positive but price decreased by {abs(price_change):.2f}%"
+        elif sentiment == "NEGATIVE" and price_change > 0:
+            return f"Mismatch: Sentiment was negative but price increased by {price_change:.2f}%"
+        else:
+            return f"Neutral impact: No significant change ({price_change:.2f}%)"
+    except Exception as e:
+        print(f"Error calculating impact: {e}")
+        return "Error calculating impact"
+
+def fetch_historical_sentiment(stock_name):
+    """
+    Fetches sentiment data for historical news articles related to the stock.
+    """
+    print(f"Fetching historical sentiment for stock: {stock_name}")
+    try:
+        articles = fetch_stock_news(stock_name)
+        if not articles:
+            raise ValueError(f"No news articles found for stock: {stock_name}")
+
+        sentiment_data = []
+        for article in articles:
+            headline = article.get("title", "No Title")
+            published_date = article.get("publishedAt", "")[:10]
+            sentiment, confidence = analyze_sentiment_with_huggingface(headline)
+
+            sentiment_data.append({
+                "Date": published_date,
+                "Headline": headline,
+                "Sentiment": sentiment,
+                "Confidence": confidence
+            })
+        return pd.DataFrame(sentiment_data)
+    except Exception as e:
+        print(f"Error fetching historical sentiment: {e}")
+        return pd.DataFrame()
+
+# -----------------------------------------------
+# API Routes
+# -----------------------------------------------
+
+@app.route('/api/stock-news', methods=['POST'])
+def get_stock_news():
+    """
+    API endpoint to fetch and analyze stock news.
+    """
+    data = request.get_json()
+    stock_name = data.get("stock_name")
+    if not stock_name:
+        return jsonify({"error": "Stock name is required"}), 400
+
+    try:
+        news_articles = fetch_stock_news(stock_name)
+        analyzed_articles = []
+
+        for article in news_articles[:10]:
+            sentiment, confidence = analyze_sentiment_with_huggingface(article.get("content", ""))
+            impact = calculate_historical_impact(stock_name, article.get("publishedAt", ""), sentiment)
+            analyzed_articles.append({
+                "headline": article.get("title", ""),
+                "content": article.get("content", ""),
+                "published_at": article.get("publishedAt", ""),
+                "sentiment": sentiment,
+                "confidence": confidence,
+                "impact": impact
+            })
+        return jsonify(analyzed_articles)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/api/historical-sentiment' , methods=['POST'])
+def analyze_historical_sentiment():
+    data = request.get_json()
+    stock_name = data.get("stock_name")
+
+    if not stock_name:
+        return jsonify({"error": "Stock name is required"}), 400
+
+    try:
+        # שליפת הנתונים
+        stock_data = fetch_historical_data(stock_name)
+        sentiment_data = fetch_historical_sentiment(stock_name)
+
+        if stock_data.empty or sentiment_data.empty:
+            return jsonify({"error": "No data available for analysis."}), 400
+
+        # עיבוד תאריכים
+        stock_data["Date"] = pd.to_datetime(stock_data["Date"], errors="coerce").dt.strftime("%Y-%m-%d")
+        sentiment_data["Date"] = pd.to_datetime(sentiment_data["Date"], errors="coerce").dt.strftime("%Y-%m-%d")
+
+        # סינון נתונים לא חוקיים
+        stock_data = stock_data.dropna(subset=["Date"])
+        sentiment_data = sentiment_data.dropna(subset=["Date"])
+
+        # מיזוג הנתונים
+        combined_data = pd.merge(stock_data, sentiment_data, on="Date", how="inner")
+
+        # חישוב שינויי המחיר באחוזים
+        combined_data["Price_Change"] = combined_data["Close"].pct_change() * 100
+
+        # חישוב הצלחת סנטימנט חיובי ושלילי
+        positive_impact = combined_data[(combined_data["Sentiment"] == "POSITIVE") & (combined_data["Price_Change"] > 0)]
+        negative_impact = combined_data[(combined_data["Sentiment"] == "NEGATIVE") & (combined_data["Price_Change"] < 0)]
+
+        positive_success_rate = len(positive_impact) / len(combined_data[combined_data["Sentiment"] == "POSITIVE"]) * 100
+        negative_success_rate = len(negative_impact) / len(combined_data[combined_data["Sentiment"] == "NEGATIVE"]) * 100
+
+        # הוספת אינדיקטורים לגרף
+        combined_data["Indicator"] = combined_data.apply(
+            lambda row: "👍" if row["Sentiment"] == "POSITIVE" and row["Price_Change"] > 0 else
+                        "👎" if row["Sentiment"] == "NEGATIVE" and row["Price_Change"] < 0 else "⚠️", axis=1
+        )
+
+        # הכנת נתוני המחיר לגרף עם אינדיקטורים
+        price_data = combined_data[["Date", "Close", "Price_Change", "Indicator"]]
+        price_data["Date"] = pd.to_datetime(price_data["Date"], errors="coerce")
+        price_data = price_data.dropna()
+        price_data["BusinessDay"] = price_data["Date"].apply(
+            lambda x: {"year": x.year, "month": x.month, "day": x.day} if not pd.isnull(x) else None
+        )
+        price_data = price_data.dropna(subset=["BusinessDay"])
+        price_data = price_data[["BusinessDay", "Close", "Price_Change", "Indicator"]].to_dict(orient="records")
+
+
+        # הכנת מגמות צבע
+        combined_data["Trend_Color"] = combined_data["Price_Change"].apply(
+            lambda change: "green" if change > 0 else "red"
+        )
+
+        return jsonify({
+            "positive_success_rate": positive_success_rate,
+            "negative_success_rate": negative_success_rate,
+            "total_analyzed_days": len(combined_data),
+            "news_articles": sentiment_data[["Date", "Headline", "Sentiment", "Confidence"]].to_dict(orient="records"),
+            "price_data": price_data,  # נתוני מחיר לגרף
+            "trend_colors": combined_data[["Date", "Trend_Color"]].to_dict(orient="records")  # צבעי מגמה
+        })
+    except Exception as e:
+        print(f"Error in analyze_historical_sentiment: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+    
+# פונקציה לבדיקה האם התנאי מתקיים
+def evaluate_condition(data, condition):
+    try:
+        # Replace simple placeholders with DataFrame columns
+        condition = condition.replace("MA", "data['MA']")
+        return data.eval(condition)
+    except Exception as e:
+        print(f"Error evaluating condition: {e}")
+        return pd.Series([False] * len(data))
+
+# פונקציה לבדיקת אסטרטגיה
 @app.route('/api/strategy', methods=['POST'])
-def test_strategy():
-    data = request.json
+def strategy_test():
+    data = request.get_json()
     ticker = data.get("ticker")
     interval = data.get("interval", "1d")
     period = data.get("period", "1y")
-    buy_condition_str = data.get("buy_condition")
-    sell_condition_str = data.get("sell_condition")
+    buy_condition = data.get("buy_condition")
+    sell_condition = data.get("sell_condition")
 
-    try:
-        df = yf.download(ticker, period=period, interval=interval)
-        if df.empty:
-            return jsonify({"error": "No data found for the specified ticker"}), 404
-        
-        df['MA20'] = SMAIndicator(df['Close'], window=20).sma_indicator()
-        df['MA200'] = SMAIndicator(df['Close'], window=200).sma_indicator()
-        
-        def buy_condition(df, i):
-            return df['MA20'][i-1] < df['MA200'][i-1] and df['MA20'][i] > df['MA200'][i]
-        
-        def sell_condition(df, i):
-            return df['MA20'][i-1] > df['MA200'][i-1] and df['MA20'][i] < df['MA200'][i]
+    # שליפה של הממוצעים מהבקשה או הגדרת ערכי ברירת מחדל
+    ma_short_period = int(data.get("ma_short", 20))
+    ma_long_period = int(data.get("ma_long", 50))
+    
+    # הורדת נתונים
+    stock_data = yf.download(ticker, period=period, interval=interval)
+    if stock_data.empty:
+        return jsonify({"error": "No data found for the ticker"}), 404
 
-        buy_signals, sell_signals, profit_loss_total = calculate_strategy(df, buy_condition, sell_condition)
+    # חישוב הממוצעים הנעים בהתבסס על הפרמטרים שהתקבלו
+    stock_data[f'MA{ma_short_period}'] = SMAIndicator(stock_data['Close'], window=ma_short_period).sma_indicator()
+    stock_data[f'MA{ma_long_period}'] = SMAIndicator(stock_data['Close'], window=ma_long_period).sma_indicator()
+    stock_data.dropna(inplace=True)
 
-        return jsonify({
-            "dates": df.index.strftime('%Y-%m-%d').tolist(),
-            "prices": df['Close'].tolist(),
-            "buy_signals": buy_signals,
-            "sell_signals": sell_signals,
-            "total_profit_loss": profit_loss_total
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    stock_data['buy_signal'] = evaluate_condition(stock_data, buy_condition)
+    stock_data['sell_signal'] = evaluate_condition(stock_data, sell_condition)
+
+    positions = []
+    buy_price = None
+    total_profit_loss = 0
+
+    for index, row in stock_data.iterrows():
+        if row['buy_signal'] and buy_price is None:
+            buy_price = row['Close']
+            positions.append({"type": "buy", "price": buy_price, "date": index.strftime('%Y-%m-%d')})
+        elif row['sell_signal'] and buy_price is not None:
+            sell_price = row['Close']
+            profit_loss = sell_price - buy_price
+            total_profit_loss += profit_loss
+            positions.append({
+                "type": "sell", "price": sell_price, "date": index.strftime('%Y-%m-%d'),
+                "profit_loss": profit_loss
+            })
+            buy_price = None
+
+    results = {
+        "ticker": ticker,
+        "total_profit_loss": total_profit_loss,
+        "buy_signals": [p for p in positions if p["type"] == "buy"],
+        "sell_signals": [p for p in positions if p["type"] == "sell"]
+    }
+
+    return jsonify(results)
     
 # Prepare data for training
 def prepare_data(ticker, period, interval):
@@ -189,4 +436,4 @@ def get_stock_data(ticker):
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(port=5000)
+    app.run(port=5000,debug=True)

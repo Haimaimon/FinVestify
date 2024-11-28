@@ -55,6 +55,15 @@ function Favorites() {
     }
   };
 
+  const handleSelectStock = (ticker) => {
+    if (selectedStock === ticker) {
+      setSelectedStock(null); // אם לוחצים שוב על אותה מניה, ננקה את הבחירה
+    } else {
+      setSelectedStock(null); // קודם כל מנקים את הבחירה הקודמת
+      setTimeout(() => setSelectedStock(ticker), 0); // ולאחר מכן בוחרים את המניה החדשה
+    }
+  };
+
   return (
     <div className="favorites-container">
       {favorites.length === 0 ? (
@@ -63,7 +72,9 @@ function Favorites() {
         favorites.map((stock) => (
           <div className="stock-card" key={stock.ticker}>
             <div className="card-header">
-              <Typography variant="h5" key={stock.ticker} onClick={() => setSelectedStock(stock.ticker)} >{stock.ticker}</Typography>
+            <Typography variant="h5" key={stock.ticker} onClick={() => handleSelectStock(stock.ticker)} >
+              {stock.ticker}
+            </Typography>
               <IconButton className="remove-button" onClick={() => handleRemoveFavorite(stock.ticker)}>
                 <Delete />
               </IconButton>
