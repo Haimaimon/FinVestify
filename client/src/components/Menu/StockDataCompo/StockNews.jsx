@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import axios from '../../features/axiosConfig';
+import axios from '../../../features/axiosConfig';
 import { TextField, Button, CircularProgress, Card, CardContent, Typography } from '@mui/material';
 import Slider from 'react-slick';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
-import '../Menu/StockDataStyles.css'
-
+import '../StockDataCompo/StockDataStyles.css';
 const StockNews = ({ ticker }) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');

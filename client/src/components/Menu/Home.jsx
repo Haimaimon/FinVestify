@@ -1,27 +1,17 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from '../../features/axiosConfig';
 import NewsFeed from '../HomeCompo/NewsFeed';
 import PortfolioSummary from '../HomeCompo/PortfolioSummary';
 import './Home.css';
-import { useEffect, useState } from 'react';
-
-
-const checkIsLoggedIn = () => {
-  const token = localStorage.getItem('tokenim');
-  return !!token; // מחזיר true אם יש טוקן, אחרת false
-};
+import { useEffect } from 'react';
 
 const fetchPortfolioPerformance = async () => {
   const { data } = await axios.get('/portfolio/performance');
   return data;
 };
 
-function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
-    setIsLoggedIn(checkIsLoggedIn());
-  }, []);
+function Home({ isLoggedIn }) {
+  const queryClient = useQueryClient();
 
   const { data: portfolioPerformance, isLoading, error } = useQuery({
     queryKey: ['portfolioPerformance'],
@@ -29,12 +19,17 @@ function Home() {
     enabled: isLoggedIn, // מבצע את הקריאה רק אם המשתמש מחובר
   });
 
+  useEffect(() => {
+    if (!isLoggedIn) {
+      queryClient.removeQueries(['portfolioPerformance']);
+    }
+  }, [isLoggedIn, queryClient]);
+
   if (isLoading) return <div>Loading portfolio...</div>;
   if (error) return <div>Error loading portfolio data.</div>;
 
   return (
     <div className="home-container">
-      {/* חדשות פיננסיות */}
       <div className="news-section">
         <h2>Latest Financial News</h2>
         <NewsFeed />

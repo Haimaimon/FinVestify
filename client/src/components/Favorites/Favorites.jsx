@@ -1,66 +1,72 @@
-import React, { useEffect, useState } from 'react';
-import axios from '../../features/axiosConfig';
-import { Delete } from '@material-ui/icons';
-import { Typography, IconButton } from '@material-ui/core';
-import './Favorites.css';
-import StockChart from './StockChart';
-
+import React, { useEffect, useState, useRef } from "react";
+import axios from "../../features/axiosConfig";
+import { Delete } from "@material-ui/icons";
+import { Typography, IconButton } from "@material-ui/core";
+import "./Favorites.css";
+import StockChart from "./StockChart";
 
 function Favorites() {
   const [favorites, setFavorites] = useState([]);
   const [selectedStock, setSelectedStock] = useState(null);
+  const favoritesRef = useRef([]);
 
+  // Fetch initial favorites
   useEffect(() => {
     const fetchFavorites = async () => {
       try {
-        const response = await axios.get('/portfolio/favorites');
+        const response = await axios.get("/portfolio/favorites");
         setFavorites(response.data);
+        favoritesRef.current = response.data; // Update ref
       } catch (error) {
-        console.error('Error fetching favorite stocks:', error);
+        console.error("Error fetching favorite stocks:", error);
       }
     };
     fetchFavorites();
   }, []);
 
-  // Fetch latest stock data every second
+  // Fetch stock prices every second
   useEffect(() => {
     const intervalId = setInterval(async () => {
       try {
         const updatedFavorites = await Promise.all(
-          favorites.map(async (stock) => {
+          favoritesRef.current.map(async (stock) => {
             const response = await axios.get(`/portfolio/stock/${stock.ticker}`);
             return {
               ...stock,
               closePrice: response.data.closePrice,
-              change: response.data.change, // Calculate change here if needed
+              change: response.data.change,
             };
           })
         );
         setFavorites(updatedFavorites);
       } catch (error) {
-        console.error('Error updating stock prices:', error);
+        console.error("Error updating stock prices:", error);
       }
-    }, 1000); // 1 second interval
+    }, 1000);
 
-    return () => clearInterval(intervalId); // Clear interval on unmount
-  }, [favorites]);
+    return () => clearInterval(intervalId);
+  }, []);
 
   const handleRemoveFavorite = async (ticker) => {
     try {
       await axios.delete(`/portfolio/favorites/${ticker}`);
-      setFavorites(favorites.filter(stock => stock.ticker !== ticker));
-      if (selectedStock === ticker) setSelectedStock(null); // Deselect if removed
+      const updatedFavorites = favoritesRef.current.filter(
+        (stock) => stock.ticker !== ticker
+      );
+      setFavorites(updatedFavorites);
+      favoritesRef.current = updatedFavorites; // Update ref
+      if (selectedStock === ticker) setSelectedStock(null);
     } catch (error) {
-      console.error('Error removing favorite stock:', error);
+      console.error("Error removing favorite stock:", error);
     }
   };
 
   const handleSelectStock = (ticker) => {
     if (selectedStock === ticker) {
-      setSelectedStock(null); // אם לוחצים שוב על אותה מניה, ננקה את הבחירה
+      setSelectedStock(null);
     } else {
-      setSelectedStock(null); // קודם כל מנקים את הבחירה הקודמת
-      setTimeout(() => setSelectedStock(ticker), 0); // ולאחר מכן בוחרים את המניה החדשה
+      setSelectedStock(null);
+      setTimeout(() => setSelectedStock(ticker), 0);
     }
   };
 
@@ -72,27 +78,38 @@ function Favorites() {
         favorites.map((stock) => (
           <div className="stock-card" key={stock.ticker}>
             <div className="card-header">
-            <Typography variant="h5" key={stock.ticker} onClick={() => handleSelectStock(stock.ticker)} >
-              {stock.ticker}
-            </Typography>
-              <IconButton className="remove-button" onClick={() => handleRemoveFavorite(stock.ticker)}>
+              <Typography
+                variant="h5"
+                onClick={() => handleSelectStock(stock.ticker)}
+              >
+                {stock.ticker}
+              </Typography>
+              <IconButton
+                className="remove-button"
+                onClick={() => handleRemoveFavorite(stock.ticker)}
+              >
                 <Delete />
               </IconButton>
             </div>
             <div className="price-info">
-              <Typography variant="body1">Last Close: ${stock.closePrice}</Typography>
+              <Typography variant="body1">
+                Last Close: ${stock.closePrice}
+              </Typography>
               <Typography
                 variant="body1"
-                className={stock.change >= 0 ? 'change-positive' : 'change-negative'}
+                className={
+                  stock.change >= 0 ? "change-positive" : "change-negative"
+                }
               >
-                Change: {stock.change >= 0 ? `+${stock.change}%` : `${stock.change}%`}
+                Change: {stock.change >= 0
+                  ? `+${stock.change}%`
+                  : `${stock.change}%`}
               </Typography>
             </div>
           </div>
         ))
       )}
-        {/* Only render one StockChart component */}
-        {selectedStock && <StockChart key={selectedStock} ticker={selectedStock} />}    
+      {selectedStock && <StockChart key={selectedStock} ticker={selectedStock} />}
     </div>
   );
 }

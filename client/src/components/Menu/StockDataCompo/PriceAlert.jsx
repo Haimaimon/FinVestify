@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Pusher from 'pusher-js';
-import axios from '../../features/axiosConfig';
+import axios from '../../../features/axiosConfig';
 import { TextField, Button ,IconButton } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import './StockDataStyles.css'

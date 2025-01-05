@@ -16,7 +16,7 @@ export default function AuthForms({ formType, onClose, onSuccess }) {
   const loginMutation = useMutation({
     mutationFn: (userData) => axios.post('/users/login', userData),
     onSuccess: (data) => {
-      console.log("Response data:", data.data); // הצגת נתוני התגובה
+      //console.log("Response data:", data.data); // הצגת נתוני התגובה
       const token = data.data;
       localStorage.setItem('tokenim', token); // שמירת הטוקן
       onSuccess(token);
