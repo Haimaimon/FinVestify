@@ -10,12 +10,13 @@ import News from "./components/Menu/News";
 import StockData from "./components/Menu/StockDataCompo/StockData";
 import Profile from "./components/userProfile/Profile";
 import TradingViewCrypto from "./components/TradingView/TradingViewCrypto";
-import StockPredictionPage from "./components/PredictCompo/StockPredictionPage";
 import Favorites from "./components/Favorites/Favorites";
 import About from "./components/Menu/About";
 import StrategyTrade from "./components/Menu/StrategyTradeCompo/StrategyTrade";
 import StockNews from "./components/NewsOfStock/StockNews";
 import SentimentAnalysis from "./components/PredictNews/SentimentAnalysis";
+import StockPrediction from "./components/Menu/PredictStockCompo/StockPrediction";
+import SearchStocks from "./components/SearchStock/SearchStocks";
 
 const queryClient = new QueryClient();
 
@@ -49,19 +50,20 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <Router>
         <Navbar openAuthForm={openAuthForm} isLoggedIn={isLoggedIn} handleLogout={handleLogout} />
-        <div style={{ marginTop: '20px' }}>
+        <div style={{ marginTop: '1px' }}>
           <TradingViewCrypto />
         </div>
         <Routes>
           <Route path="/" element={<Home isLoggedIn={isLoggedIn} />} />
           <Route path="/news" element={<News />} />
           <Route path="/stockdata" element={<StockData />} />
-          <Route path="/stockpredict" element={<StockPredictionPage />} />
+          <Route path="/predictstock" element={<StockPrediction />} />
           <Route path="/strategytrade" element={<StrategyTrade />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/favorites" element={<Favorites />} />
           <Route path="/stocknews" element={<StockNews />} />
           <Route path="/sentiment" element={<SentimentAnalysis />} />
+          <Route path="/search" element={<SearchStocks />} />
           <Route path="/about" element={<About />} />
         </Routes>
         {isAuthOpen && (
