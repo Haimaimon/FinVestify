@@ -6,6 +6,8 @@ const portfolioRoute = require('./routes/portfolioRoute');
 const transactionRoute = require('./routes/transactionRoute');
 const alertRoute = require('./routes/alertRoute');
 const newsRoute = require('./routes/newsRoute');
+const geminaiRoutes = require('./routes/geminaiRoutes');
+const chatRoute = require('./routes/chatRoute');
 
 const { getNewsForStock } = require('./controllers/newsController');
 const app = express();
@@ -24,6 +26,9 @@ app.use("/api/news",newsRoute);
 
 app.get('/api/news', getNewsForStock);
 
+// שימוש בנתיבים (Routes) של Geminai
+app.use('/api/geminai', geminaiRoutes);
+app.use('/api/chat', chatRoute);
 
 // Start alert service
 const triggerAlerts = require('./utils/alertService');

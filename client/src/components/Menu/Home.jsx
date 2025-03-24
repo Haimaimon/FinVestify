@@ -31,7 +31,6 @@ function Home({ isLoggedIn }) {
   return (
     <div className="home-container">
       <div className="news-section">
-        <h2>Latest Financial News</h2>
         <NewsFeed />
       </div>
 

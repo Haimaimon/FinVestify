@@ -35,10 +35,12 @@ const filterRelevantNews = (articles) => {
 };
 
 const sendNotification = (newsItem) => {
+  console.log(newsItem)
   pusher.trigger("stock-news", "new-alert", {
     title: newsItem.title,
     description: newsItem.description,
     url: newsItem.url,
+    date: newsItem.publishedAt,
   });
 };
 

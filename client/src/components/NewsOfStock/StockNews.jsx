@@ -89,6 +89,9 @@ const StockNews = () => {
                   <Typography variant="body2" color="text.secondary">
                     {alert.description}
                   </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {alert.publishedAt}
+                  </Typography>
                 </CardContent>
                 <Box sx={{ padding: "10px" }}>
                   <IconButton

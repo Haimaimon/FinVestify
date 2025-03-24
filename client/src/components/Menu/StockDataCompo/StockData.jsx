@@ -82,13 +82,29 @@ function StockData() {
     };
   
     const fetchData = async () => {
+      console.log(`Fetching stock data for: ${ticker} with interval: ${candleSize}`);
+
       try {
         const response = await axios.get(`http://localhost:5000/api/stock/${ticker}`, {
           params: { interval: candleSize }
         });
+        console.log("API Response:", response.data);
+
+        if (!response.data.dates || response.data.dates.length === 0) {
+          console.error("Empty data received from API");
+          return;
+        }
 
         const { dates, open, high, low, prices } = response.data;
-
+        const chartData = dates.map((timestamp, index) => ({
+          time: timestamp / 1000, // ממיר למספר שניות
+          open: open[index],
+          high: high[index],
+          low: low[index],
+          close: prices[index]
+        })).sort((a, b) => a.time - b.time);
+        
+        /*
         const chartData = dates.map((date, index) => ({
           time: new Date(date).getTime() / 1000,
           open: open[index],
@@ -98,7 +114,7 @@ function StockData() {
         })).filter((data, index, self) =>
           index === self.findIndex((t) => t.time === data.time)
         ).sort((a, b) => a.time - b.time);
-
+        */
         setChartData(chartData);
         candlestickSeriesRef.current.setData(chartData);
 

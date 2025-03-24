@@ -17,6 +17,9 @@ import StockNews from "./components/NewsOfStock/StockNews";
 import SentimentAnalysis from "./components/PredictNews/SentimentAnalysis";
 import StockPrediction from "./components/Menu/PredictStockCompo/StockPrediction";
 import SearchStocks from "./components/SearchStock/SearchStocks";
+import ChatbotUI from "./components/Chatbot/ChatbotUI";
+//import ChatbotBubble from "./components/Chatbot/ChatbotBubble";
+import ChatbotBubbleWithText from "./components/Chatbot/ChatbotBubbleWithText";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +27,7 @@ function App() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [authType, setAuthType] = useState('login');
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('tokenim'));
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
 
   const openAuthForm = (type) => {
     setAuthType(type);
@@ -52,6 +56,14 @@ function App() {
         <Navbar openAuthForm={openAuthForm} isLoggedIn={isLoggedIn} handleLogout={handleLogout} />
         <div style={{ marginTop: '1px' }}>
           <TradingViewCrypto />
+          {/* בועה צפה שמופיעה תמיד */}
+          <ChatbotBubbleWithText onClick={() => setIsChatbotOpen(true)} />
+
+          {/* חלון הצ'אט עצמו */}
+          <ChatbotUI
+            isOpen={isChatbotOpen}
+            onClose={() => setIsChatbotOpen(false)}
+          />
         </div>
         <Routes>
           <Route path="/" element={<Home isLoggedIn={isLoggedIn} />} />

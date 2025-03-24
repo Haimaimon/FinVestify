@@ -6,6 +6,7 @@ import pandas as pd
 from ta import add_all_ta_features
 import requests
 from transformers import pipeline
+import time
 from datetime import datetime, timedelta
 
 
@@ -474,42 +475,62 @@ def strategy_test():
 
     
 
+# 🔑 API Key ל-Polygon.io (החלף במפתח האישי שלך)
+POLYGON_API_KEY = "QK_TtkEeZYSntEOQwX5YeSfNwhbsYtfd"
+
 @app.route('/api/stock/<ticker>')
 def get_stock_data(ticker):
     interval = request.args.get('interval', '1d')
-    stock = yf.Ticker(ticker)
+    
+    print(f"\n=== Fetching Stock Data from Polygon.io ===")
+    print(f"Ticker: {ticker}, Interval: {interval}")
+
+    # 🔹 התאמת האינטרוולים לפורמט של Polygon
+    interval_map = {
+        "1m": "minute",
+        "5m": "minute",
+        "15m": "minute",
+        "30m": "minute",
+        "1h": "hour",
+        "1d": "day",
+        "5d": "day",
+        "1wk": "week",
+        "1mo": "month",
+    }
+    
+    if interval not in interval_map:
+        return jsonify({"error": "Invalid interval"}), 400
+
+    timeframe = interval_map[interval]
+
+    # 📅 הגדרת טווח תאריכים (לקבלת נתונים היסטוריים)
+    end_date = datetime.now().strftime("%Y-%m-%d")
+    url = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/1/{timeframe}/2010-01-01/{end_date}?apiKey={POLYGON_API_KEY}"
 
     try:
-        # הגבלת התקופה לאינטרוולים קטנים (עד שנתיים)
-        if interval in ['1m']:
-            hist = stock.history(period="7d", interval=interval)
-        elif interval in ['2m', '5m' ,'15m', '30m']:    
-            hist = stock.history(period="60d", interval=interval)
-        elif interval in ['1h']:    
-            hist = stock.history(period="730d", interval=interval)    
-        else:
-            hist = stock.history(period="max", interval=interval)
-        
-        # If no data returned, raise an error
-        if hist.empty:
-            return jsonify({"error": "No data found for the specified interval"}), 404
+        response = requests.get(url)
+        data = response.json()
 
-        # Handle non-DateTime indices
-        if not hasattr(hist.index, 'strftime'):
-            hist.index = hist.index.to_pydatetime()
-        
-        data = {
-            'dates': hist.index.strftime('%Y-%m-%d %H:%M:%S').tolist(),
-            'prices': hist['Close'].tolist(),
-            'open': hist['Open'].tolist(),
-            'high': hist['High'].tolist(),
-            'low': hist['Low'].tolist(),
+        # בדיקת תקינות הנתונים
+        if "results" not in data or not data["results"]:
+            print(f"ERROR: No data found for {ticker}")
+            return jsonify({"error": "No data found"}), 404
+
+        # עיבוד הנתונים
+        prices = data["results"]
+        processed_data = {
+            "dates": [item["t"] for item in prices],  # זמן במילישניות
+            "open": [item["o"] for item in prices],
+            "high": [item["h"] for item in prices],
+            "low": [item["l"] for item in prices],
+            "prices": [item["c"] for item in prices],  # מחיר סגירה
         }
-        
-        return jsonify(data)
-    except Exception as e:
-        print(f"Error fetching data: {e}")
-        return jsonify({"error": str(e)}), 500
 
+        return jsonify(processed_data)
+
+    except Exception as e:
+        print(f"Error fetching data from Polygon.io: {e}")
+        return jsonify({"error": str(e)}), 500
+    
 if __name__ == "__main__":
     app.run(port=5000,debug=True)

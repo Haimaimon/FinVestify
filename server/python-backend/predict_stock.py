@@ -10,7 +10,8 @@ import os
 import schedule
 import time
 from threading import Thread
-
+import requests
+ 
 app = Flask(__name__)
 CORS(app)
 '''
@@ -274,6 +275,61 @@ def get_suggestions():
     data = pd.read_csv(DATA_PATH)
     suggestions = data[data['Symbol'].str.startswith(query)][['Symbol', 'Longname','Sector']].head(10).to_dict(orient='records')
     return jsonify(suggestions)
+ 
+
+# 🔑 API Key for Polygon.io (Replace with your own API key)
+POLYGON_API_KEY = "QK_TtkEeZYSntEOQwX5YeSfNwhbsYtfd"
+
+@app.route('/api/stock-extended/<string:stock_name>', methods=['GET'])
+def get_extended_stock_details(stock_name):
+    try:
+        print(f"Fetching extended data for stock: {stock_name}")
+
+        def fetch_json(url):
+            """פונקציה בטוחה לשליפת JSON מה-API"""
+            response = requests.get(url)
+            try:
+                return response.json()
+            except ValueError:
+                print(f"⚠️ Warning: Invalid JSON response from {url}")
+                return None  # מחזיר None אם JSON לא תקף
+
+        # 📌 1. 52-Week High & Low
+        high_low_url = f"https://api.polygon.io/v2/aggs/ticker/{stock_name}/range/1/day/2023-02-20/2024-02-20?apiKey={POLYGON_API_KEY}"
+        high_low_data = fetch_json(high_low_url)
+
+        if high_low_data and "results" in high_low_data:
+            high_52w = max([item.get("h", 0) for item in high_low_data["results"]])
+            low_52w = min([item.get("l", 0) for item in high_low_data["results"]])
+        else:
+            high_52w, low_52w = "N/A", "N/A"
+
+        # 📌 2. Market Trend Data (e.g., SMA, volatility)
+        volatility_url = f"https://api.polygon.io/v2/reference/technical_indicators/volatility/{stock_name}?apiKey={POLYGON_API_KEY}"
+        volatility_data = fetch_json(volatility_url)
+        volatility = volatility_data.get("volatility", "N/A") if volatility_data else "N/A"
+
+        # 📌 3. Earnings Date
+        earnings_url = f"https://api.polygon.io/vX/reference/earnings?ticker={stock_name}&apiKey={POLYGON_API_KEY}"
+        earnings_data = fetch_json(earnings_url)
+        earnings_date = earnings_data["results"][0]["reportDate"] if earnings_data and "results" in earnings_data else "N/A"
+
+        # 🔹 Compile all data into a response
+        stock_extended_details = {
+            "symbol": stock_name.upper(),
+            "high_52w": high_52w,
+            "low_52w": low_52w,
+            "volatility": volatility,
+            "earnings_date": earnings_date,
+            "market_trend": "Uptrend" if high_52w != "N/A" and high_52w > low_52w else "Downtrend"
+        }
+
+        return jsonify(stock_extended_details)
+
+    except Exception as e:
+        print(f"⚠️ Server Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
    
 if __name__ == '__main__':
     # הפעלת עדכון מיידי של כל המניות
