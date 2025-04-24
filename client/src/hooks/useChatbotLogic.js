@@ -5,19 +5,12 @@ import { fetchUserMessages, saveMessageToServer, deleteUserMessages } from '../s
 import { sendQuestionToGeminiAI } from '../services/geminaiService';
 
 function parseAdvancedStockQuery(userInput) {
-  // מסירים סימני פיסוק ומקטינים רישיות
   const sanitized = userInput.replace(/[?!.,]/g, '').toLowerCase();
-
-  // 1) האם יש mention של “שנת 2025” או “2025” ?
   const yearMatch = sanitized.match(/(\d{4})/);
   const year = yearMatch ? yearMatch[1] : null;
-
-  // 2) חיפוש ticker (נניח עד 5 אותיות)
   const tickerMatch = sanitized.match(/([a-z]{1,5})/); 
-  // כמובן אפשר לשלב עם regex מורכב יותר.
   const ticker = tickerMatch ? tickerMatch[1].toUpperCase() : null;
 
-  // 3) האם מדובר בשאלה אחוזים (“כמה אחוזים”) או בשאלה מחיר (“מה היה מחיר”)?
   let mode = null;
   if (/(\bעלתה\b|\bעלו\b|\bאחוזים\b|percent|%)/.test(sanitized)) {
     mode = 'percentChange';
@@ -31,76 +24,80 @@ function parseAdvancedStockQuery(userInput) {
   return null;
 }
 
-/**
- * בודק אם הטקסט שהמשתמש הקליד מכיל בקשה למחיר מניה (ticker).
- * לדוגמה "מה המחיר של AAPL", "price of TSLA", "מה מחיר מניית msft" וכו'.
- * אפשר להרחיב את ה-Regex לפי הצורך.
- */
-/*function parseStockTicker(userInput) {
-    // 1) הסרת סימני שאלה/נקודה/פסיק/קריאה וכו'
-  const sanitized = userInput.replace(/[?!.,]/g, '').toLowerCase();
+function inferContextFromMessages(messages) {
+  if (!messages || messages.length === 0) return null;
 
-   // 2) הרג'קס:
-  //    - באנגלית: "price of AAPL"
-  //    - בעברית: "מה מחיר מניית aapl", "מחיר מניית aapl", "מה המחיר של מניית aapl"
-  //    - ננסה לתפוס אותיות לועזיות באורך 1 עד 5 (טיקרים נפוצים)
-  //
-  // הסבר:
-  //  - price of\s+([a-z]{1,5})   => תופס price of + רווחים + עד 5 אותיות
-  //  - מחיר(?:\s+(?:של))?\s+מניית\s+([a-z]{1,5})  => "מחיר" או "מחיר של" ואז "מניית X"
-  //
-  // שים לב: ייתכן משתמשים יקלידו בעברית "מה מחיר מניית X" או "מה המחיר של מניית X" 
-  //         (יש עוד וריאציות), אפשר להרחיב עוד.
-  const pattern = new RegExp(
-    '(?:price of\\s+([a-z]{1,5}))' + 
-    '|(?:מחיר(?:\\s+(?:של))?\\s+מניית\\s+([a-z]{1,5}))', 
-    'i'
-  );
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.type === 'user') {
+      const content = msg.content.toLowerCase();
 
-  const match = sanitized.match(pattern);
-  if (!match) {
-    // לא זוהה טיקר
-    return null;
+      const tickerMatch = msg.content.match(/\b[A-Z]{2,5}\b/);
+      if (tickerMatch) {
+        return { type: 'stock', value: tickerMatch[0], raw: msg.content };
+      }
+
+      const stockKeywords = ['מניית', 'מניה', 'stock', 'ticker'];
+      const hasStockWord = stockKeywords.some(word => content.includes(word));
+      if (hasStockWord) {
+        const symbolMatch = msg.content.match(/\b[A-Z]{2,5}\b/);
+        if (symbolMatch) {
+          return { type: 'stock', value: symbolMatch[0], raw: msg.content };
+        }
+      }
+
+      if (/קריפטו|בינה מלאכותית|ai|נדלן|real estate|טכנולוגיה|finance|כלכלה|מדדים|s&p|nasdaq/.test(content)) {
+        return { type: 'topic', value: content, raw: msg.content };
+      }
+
+      if (content.length > 15) {
+        return { type: 'general', value: content, raw: msg.content };
+      }
+    }
   }
-  // אם נתפס באנגלית => match[1], אם בעברית => match[2]
-  return (match[1] || match[2])?.toUpperCase();
-}*/
 
-/**
- * Hook לניהול הצ'אט עם React Query:
- *   - שליפת היסטוריית הודעות (messages) ממטמון ו/או מהשרת
- *   - שליחת הודעה (user), אם מדובר בשאלה על מניה => פונים ל-API מניות
- *     אחרת => פונים לג'מינאי
- *   - החזרת ערכים (messages, isLoading, sendMessage) באותה צורה כמו קודם
- */
+  return null;
+}
+
 export function useChatbotLogic() {
   const queryClient = useQueryClient();
 
-  // 1) Query: שליפה של היסטוריית ההודעות
   const {
     data: messages,
     isLoading: isMessagesLoading
   } = useQuery({
     queryKey: ['chatMessages'],
     queryFn: fetchUserMessages
-    // אפשר להגדיר staleTime / cacheTime
   });
 
-  // 2) Mutation: טיפול ב"שליחת הודעה" (user => bot).
   const { mutateAsync: sendChatFlow, isLoading: isMutationLoading } = useMutation({
     mutationFn: async (text) => {
-      // שלב א) מוסיפים בשרת הודעת משתמש
       const userMsg = { type: 'user', content: text };
       await saveMessageToServer(userMsg);
 
-      // שלב ב) מזהים אם השאלה על מניה
+      const isContextualQuestion = /היא|בה|עליה|כדאי להשקיע|מה דעתך עליה|מה אתה חושב עלייה|זה|בו|בהם|בהן|לגביה|אליה/.test(text.toLowerCase());
+
+      let context = null;
+      if (isContextualQuestion) {
+        context = inferContextFromMessages(messages);
+        if (context) {
+          const suffix =
+            context.type === 'stock'
+              ? ` (בהתייחס למניית ${context.value})`
+              : context.type === 'topic'
+              ? ` (בהקשר לנושא \"${context.value}\")`
+              : ` (בהתייחס למה שנאמר קודם: \"${context.value}\")`;
+          text = `${text}${suffix}`;
+        }
+      }
+
+      console.log('Text לפני שליחה ל-Gemini:', text);
+      console.log('Context מזוהה:', context);
+
       let botResponse;
-      // 1) נבדוק אם זו שאלה מתקדמת (טיקר + שנה + סוג)
       const advQuery = parseAdvancedStockQuery(text); 
       if (advQuery) {
-        // { ticker, year, mode }
         const { ticker, year, mode } = advQuery;
-        // נקרא לשרת: /api/stocks/year?ticker=...&year=...&mode=...
         const url = `/stocks/year?ticker=${ticker}&year=${year}&mode=${mode}`;
         const { data } = await axios.get(url);
 
@@ -109,41 +106,29 @@ export function useChatbotLogic() {
         } else if (mode === 'percentChange' && data.percentChange != null) {
           botResponse = `בשנת ${year} מניית ${ticker} השתנתה ב-${data.percentChange.toFixed(2)}% בין תחילת השנה לסופה.`;
         } else if (mode === 'priceOnly') {
-          // priceOnly => יש data.firstClose, data.lastClose
           botResponse = `בשנת ${year} מניית ${ticker} החלה סביב ${data.firstClose} וסיימה סביב ${data.lastClose}.`;
         } else {
           botResponse = `קיבלתי נתונים: ${JSON.stringify(data)}`;
         }
       } else {
-        // שאלה רגילה => ג'מינאי
-        botResponse = await sendQuestionToGeminiAI(text);
+        const prompt = context ? `בהתייחס לשאלה הקודמת: \"${context.raw}\"\nשאלה נוכחית: ${text}` : text;
+        botResponse = await sendQuestionToGeminiAI(prompt);
       }
 
-      // שלב ג) שומרים בשרת הודעת בוט עם הטקסט המתאים
       const botMsg = { type: 'bot', content: botResponse };
       await saveMessageToServer(botMsg);
-
-      // נחזיר מערך עם 2 ההודעות החדשות
       return [userMsg, botMsg];
     },
     onSuccess: (newMessages) => {
-      // שלב ד) עדכון המטמון
       queryClient.setQueryData(['chatMessages'], (old = []) => [...old, ...newMessages]);
     }
   });
 
-  // 3) מחיקת היסטוריה
   const { mutateAsync: clearChatMutation, isLoading: isDeleting } = useMutation({
-    mutationFn: async () => {
-      return await deleteUserMessages();
-    },
-    onSuccess: () => {
-      // מנקים את המטמון
-      queryClient.setQueryData(['chatMessages'], []);
-    }
+    mutationFn: async () => deleteUserMessages(),
+    onSuccess: () => queryClient.setQueryData(['chatMessages'], [])
   });
 
-  // פונקציה שעוטפת את המוטציה
   async function sendMessage(text) {
     if (!text) return;
     await sendChatFlow(text);
