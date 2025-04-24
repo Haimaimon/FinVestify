@@ -55,9 +55,10 @@ const StrategyTrade = () => {
   
       const { prices, dates } = stockDataResponse.data;
       const chartData = dates.map((date, index) => ({
-        time: new Date(date).toISOString().split("T")[0],
+        time: Math.floor(new Date(date).getTime() / 1000), // ✅ מספר שניות מ-1970 (UNIX timestamp)
         value: prices[index],
-      }));
+      }))
+      .sort((a, b) => a.time - b.time); // ✅ מיון לפי הזמן עולה
   
       // Initialize Chart
       chartRef.current = createChart(chartContainerRef.current, {
@@ -136,17 +137,13 @@ const StrategyTrade = () => {
           fullWidth
         >
           <MenuItem value="1m">1 Minute</MenuItem>
-          <MenuItem value="2m">2 Minutes</MenuItem>
           <MenuItem value="5m">5 Minutes</MenuItem>
           <MenuItem value="15m">15 Minutes</MenuItem>
           <MenuItem value="30m">30 Minutes</MenuItem>
-          <MenuItem value="60m">1 Hour</MenuItem>
-          <MenuItem value="90m">90 Minutes</MenuItem>
+          <MenuItem value="1h">1 Hour</MenuItem>
           <MenuItem value="1d">1 Day</MenuItem>
-          <MenuItem value="5d">5 Days</MenuItem>
           <MenuItem value="1wk">1 Week</MenuItem>
           <MenuItem value="1mo">1 Month</MenuItem>
-          <MenuItem value="3mo">3 Months</MenuItem>
         </TextField>
 
         <TextField

@@ -8,6 +8,7 @@ import requests
 from transformers import pipeline
 import time
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 
 app = Flask(__name__)
@@ -19,6 +20,7 @@ sentiment_analyzer = pipeline("sentiment-analysis")
 # NewsAPI Configuration
 NEWS_API_KEY = "941c905a04a24e6c8edee618209cf60e"
 NEWS_API_URL = "https://newsapi.org/v2/everything"
+POLYGON_API_KEY = "QK_TtkEeZYSntEOQwX5YeSfNwhbsYtfd"
 
 # -----------------------------------------------
 # Utility Functions
@@ -52,52 +54,71 @@ def analyze_sentiment_with_huggingface(content):
         print(f"Error analyzing sentiment: {e}")
         return "Neutral", 0.0
 
+def convert_period_to_start_date(period_str):
+    """
+    Converts yFinance-style period like '6mo' or '1y' into start_date (YYYY-MM-DD).
+    """
+    now = datetime.now()
+    if period_str.endswith("d"):
+        days = int(period_str.replace("d", ""))
+        return (now - timedelta(days=days)).strftime("%Y-%m-%d")
+    elif period_str.endswith("mo"):
+        months = int(period_str.replace("mo", ""))
+        return (now - relativedelta(months=months)).strftime("%Y-%m-%d")
+    elif period_str.endswith("y"):
+        years = int(period_str.replace("y", ""))
+        return (now - relativedelta(years=years)).strftime("%Y-%m-%d")
+    else:
+        raise ValueError("Unsupported period format")
+    
 def fetch_historical_data(stock_name, period="6mo"):
-    """
-    Fetches historical stock data for the given stock using yfinance.
-    """
-    print(f"Fetching historical data for stock: {stock_name}, period: {period}")
     try:
-        # Fetch stock data with the specified period
-        stock_data = yf.download(stock_name, period=period, interval="1d", progress=False)
-        print(f"Fetched data length for {period}: {len(stock_data)} rows")  # Log the length of fetched data
-        
-        if stock_data.empty:
-            raise ValueError(f"No historical data found for stock: {stock_name}, period: {period}")
+        print(f"📡 Fetching historical data for {stock_name} from Polygon.io, period={period}")
+        start_date = convert_period_to_start_date(period)
+        end_date = datetime.now().strftime("%Y-%m-%d")
 
-        # Handle MultiIndex columns
-        if isinstance(stock_data.columns, pd.MultiIndex):
-            stock_data.columns = stock_data.columns.droplevel(0)
+        url = f"https://api.polygon.io/v2/aggs/ticker/{stock_name}/range/1/day/{start_date}/{end_date}?adjusted=true&sort=asc&limit=50000&apiKey={POLYGON_API_KEY}"
+        response = requests.get(url)
 
-        # Standardize column names
-        stock_data.columns = ["Adj_Close", "Close", "High", "Low", "Open", "Volume"]
+        if response.status_code != 200:
+            raise Exception("Polygon API request failed")
 
-        # Reset index to make `Date` a column
-        stock_data.reset_index(inplace=True)
+        data = response.json()
+        if "results" not in data or not data["results"]:
+            raise Exception("No historical data found")
 
-        print(f"First few rows of fetched data:\n{stock_data.head()}")  # Log the first few rows of data
-        return stock_data
+        df = pd.DataFrame(data["results"])
+        df["Date"] = pd.to_datetime(df["t"], unit="ms").dt.strftime("%Y-%m-%d")
+        df.rename(columns={"o": "Open", "h": "High", "l": "Low", "c": "Close", "v": "Volume"}, inplace=True)
+        return df[["Date", "Open", "High", "Low", "Close", "Volume"]]
+
     except Exception as e:
-        print(f"Error fetching historical data: {e}")
+        print(f"❌ Error fetching historical data from Polygon: {e}")
         return pd.DataFrame()
-
-
 
 
 def calculate_historical_impact(stock_name, published_at, sentiment):
     """
-    Calculates the impact of sentiment on stock price based on historical data.
+    Fetch closing prices from Polygon and calculate sentiment impact.
     """
     try:
         published_date = published_at.split("T")[0]
-        next_day_date = (datetime.strptime(published_date, "%Y-%m-%d") + timedelta(days=2)).strftime("%Y-%m-%d")
-        stock_data = yf.download(stock_name, start=published_date, end=next_day_date, progress=False)
+        start_date = published_date
+        end_date = (datetime.strptime(published_date, "%Y-%m-%d") + timedelta(days=3)).strftime("%Y-%m-%d")
 
-        if stock_data.empty or "Close" not in stock_data.columns or stock_data["Close"].empty:
-            return f"No valid close price data for {stock_name} on {published_date} or the next day"
+        url = f"https://api.polygon.io/v2/aggs/ticker/{stock_name}/range/1/day/{start_date}/{end_date}?adjusted=true&sort=asc&limit=3&apiKey={POLYGON_API_KEY}"
+        response = requests.get(url)
 
-        close_price = stock_data["Close"].iloc[0]
-        next_day_close_price = stock_data["Close"].iloc[-1]
+        if response.status_code != 200:
+            raise Exception("Polygon API error")
+
+        data = response.json()
+        prices = data.get("results", [])
+        if len(prices) < 2:
+            return f"Not enough data to analyze impact for {stock_name} on {published_date}"
+
+        close_price = prices[0]["c"]
+        next_day_close_price = prices[1]["c"]
         price_change = ((next_day_close_price - close_price) / close_price) * 100
 
         if sentiment == "POSITIVE" and price_change > 0:
@@ -111,7 +132,7 @@ def calculate_historical_impact(stock_name, published_at, sentiment):
         else:
             return f"Neutral impact: No significant change ({price_change:.2f}%)"
     except Exception as e:
-        print(f"Error calculating impact: {e}")
+        print(f"❌ Error calculating impact with Polygon: {e}")
         return "Error calculating impact"
 
 def fetch_historical_sentiment(stock_name):
@@ -246,37 +267,85 @@ def analyze_historical_sentiment():
         return jsonify({"error": str(e)}), 500
 
 
-    
+
+def map_period_to_dates(period):
+    """
+    ממיר period כמו '1y', '5d', 'max' לתאריכים התחלה וסיום (YYYY-MM-DD)
+    """
+    now = datetime.now()
+    period_map = {
+        "1d": now - timedelta(days=1),
+        "5d": now - timedelta(days=5),
+        "1mo": now - timedelta(days=30),
+        "3mo": now - timedelta(days=90),
+        "6mo": now - timedelta(days=180),
+        "1y": now - timedelta(days=365),
+        "2y": now - timedelta(days=730),
+        "5y": now - timedelta(days=1825),
+        "10y": now - timedelta(days=3650),
+        "ytd": datetime(now.year, 1, 1),
+        "max": datetime(2010, 1, 1),  # תאריך ברירת מחדל
+    }
+    start_date = period_map.get(period.lower(), now - timedelta(days=365))
+    return start_date.strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d")
+
+
 def fetch_stock_data(ticker, period="1y", interval="1d"):
     """
-    Fetches historical stock data using yfinance.
+    Fetch historical stock data using Polygon.io API.
     """
+    print(f"📡 Fetching data for ticker: {ticker}, period: {period}, interval: {interval}")
+
+    interval_map = {
+        "1m": ("minute", 1),
+        "5m": ("minute", 5),
+        "15m": ("minute", 15),
+        "30m": ("minute", 30),
+        "1h": ("hour", 1),
+        "1d": ("day", 1),
+        "1wk": ("week", 1),
+        "1mo": ("month", 1),
+    }
+
+    if interval not in interval_map:
+        print("❌ Invalid interval provided")
+        return pd.DataFrame()
+
+    timeframe, multiplier = interval_map[interval]
+
+    # ✅ מחשבים תאריכים לפי תקופת ה־period
+    start_date, end_date = map_period_to_dates(period)
+
+    # 📦 בניית ה-URL ל-Polygon
+    url = (
+        f"https://api.polygon.io/v2/aggs/ticker/{ticker.upper()}/range/{multiplier}/{timeframe}/"
+        f"{start_date}/{end_date}?adjusted=true&sort=asc&limit=5000&apiKey={POLYGON_API_KEY}"
+    )
+
     try:
-        print(f"Fetching data for ticker: {ticker}, period: {period}, interval: {interval}")
-        stock_data = yf.download(ticker, period=period, interval=interval, progress=False)
-        
-        print(f"Data fetched:\n{stock_data.head()}")
-        print(f"Columns in data: {stock_data.columns}")
+        response = requests.get(url)
+        data = response.json()
 
-        # Handle MultiIndex columns
-        if isinstance(stock_data.columns, pd.MultiIndex):
-            stock_data.columns = ["_".join(col).strip() for col in stock_data.columns.values]  # Flatten MultiIndex
-            print(f"Columns after handling MultiIndex:\n{stock_data.columns}")
+        if "results" not in data or not data["results"]:
+            print("⚠️ No data found for the requested ticker and interval.")
+            return pd.DataFrame()
 
-        # Standardize column names
-        stock_data.rename(columns=lambda x: x.split('_')[0], inplace=True)
-        print(f"Columns after renaming:\n{stock_data.columns}")
+        df = pd.DataFrame(data["results"])
+        df["t"] = pd.to_datetime(df["t"], unit="ms")
+        df.set_index("t", inplace=True)
 
-        # Ensure necessary columns exist
-        required_columns = ["Close"]  # Use generic column name after renaming
-        for col in required_columns:
-            if col not in stock_data.columns:
-                print(f"Error: Missing required column: {col}")
-                return pd.DataFrame()  # Return empty DataFrame if required column is missing
+        df.rename(columns={
+            "o": "Open",
+            "h": "High",
+            "l": "Low",
+            "c": "Close",
+            "v": "Volume"
+        }, inplace=True)
 
-        return stock_data
+        return df[["Open", "High", "Low", "Close", "Volume"]]
+
     except Exception as e:
-        print(f"Error fetching stock data: {e}")
+        print(f"❌ Error fetching stock data from Polygon.io: {e}")
         return pd.DataFrame()
 
 
@@ -476,54 +545,53 @@ def strategy_test():
     
 
 # 🔑 API Key ל-Polygon.io (החלף במפתח האישי שלך)
-POLYGON_API_KEY = "QK_TtkEeZYSntEOQwX5YeSfNwhbsYtfd"
-
 @app.route('/api/stock/<ticker>')
 def get_stock_data(ticker):
     interval = request.args.get('interval', '1d')
-    
+
     print(f"\n=== Fetching Stock Data from Polygon.io ===")
     print(f"Ticker: {ticker}, Interval: {interval}")
 
-    # 🔹 התאמת האינטרוולים לפורמט של Polygon
     interval_map = {
-        "1m": "minute",
-        "5m": "minute",
-        "15m": "minute",
-        "30m": "minute",
-        "1h": "hour",
-        "1d": "day",
-        "5d": "day",
-        "1wk": "week",
-        "1mo": "month",
+        "1m": "minute", "2m": "minute", "5m": "minute", "15m": "minute", "30m": "minute",
+        "1h": "hour", "1d": "day", "5d": "day", "1wk": "week", "1mo": "month", "3mo": "month"
     }
-    
+
     if interval not in interval_map:
         return jsonify({"error": "Invalid interval"}), 400
 
     timeframe = interval_map[interval]
 
-    # 📅 הגדרת טווח תאריכים (לקבלת נתונים היסטוריים)
-    end_date = datetime.now().strftime("%Y-%m-%d")
-    url = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/1/{timeframe}/2010-01-01/{end_date}?apiKey={POLYGON_API_KEY}"
+    # 💡 טווח תאריכים דינמי לפי אינטרוול
+    now = datetime.now()
+    if timeframe == "minute":
+        start_date = (now - timedelta(days=5)).strftime("%Y-%m-%d")  # 5 ימים אחרונים
+    elif timeframe == "hour":
+        start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")  # חודש
+    elif timeframe == "day":
+        start_date = (now - timedelta(days=730)).strftime("%Y-%m-%d")  # שנתיים אחרונות
+    else:
+        start_date = "2010-01-01"
+
+    end_date = now.strftime("%Y-%m-%d")
+
+    url = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/1/{timeframe}/{start_date}/{end_date}?apiKey={POLYGON_API_KEY}"
 
     try:
         response = requests.get(url)
         data = response.json()
 
-        # בדיקת תקינות הנתונים
         if "results" not in data or not data["results"]:
             print(f"ERROR: No data found for {ticker}")
             return jsonify({"error": "No data found"}), 404
 
-        # עיבוד הנתונים
         prices = data["results"]
         processed_data = {
-            "dates": [item["t"] for item in prices],  # זמן במילישניות
+            "dates": [item["t"] for item in prices],
             "open": [item["o"] for item in prices],
             "high": [item["h"] for item in prices],
             "low": [item["l"] for item in prices],
-            "prices": [item["c"] for item in prices],  # מחיר סגירה
+            "prices": [item["c"] for item in prices],
         }
 
         return jsonify(processed_data)
