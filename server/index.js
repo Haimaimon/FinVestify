@@ -1,5 +1,8 @@
 const express = require("express");
 const cors = require("cors");
+const http = require("http");
+const { Server } = require("socket.io");
+
 const mongoose = require("mongoose");
 const userRoute = require("./routes/userRoute");
 const portfolioRoute = require('./routes/portfolioRoute');
@@ -9,10 +12,18 @@ const newsRoute = require('./routes/newsRoute');
 const geminaiRoutes = require('./routes/geminaiRoutes');
 const chatRoute = require('./routes/chatRoute');
 const stockRoute = require('./routes/stockRoute');
+const signalRoute = require("./routes/signalRoute");
+const tradeRoute = require("./routes/tradeRoute");
 
 const { getNewsForStock } = require('./controllers/newsController');
 const app = express();
-
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173", // או הדומיין שלך
+    methods: ["GET", "POST"]
+  }
+});
 
 require("dotenv").config();
 
@@ -27,13 +38,20 @@ app.use("/api/news",newsRoute);
 
 app.get('/api/news', getNewsForStock);
 
+app.use("/api/signal", signalRoute);
+
 // שימוש בנתיבים (Routes) של Geminai
 app.use('/api/geminai', geminaiRoutes);
 app.use('/api/chat', chatRoute);
 app.use('/api/stocks', stockRoute);
+
+app.use("/api/trades", tradeRoute);
+
 // Start alert service
 const triggerAlerts = require('./utils/alertService');
 triggerAlerts(); // Start the alert service
+
+app.set("socketio", io); // נשתמש בזה בתוך הקונטרולר
 
 const port = 5555;
 const uri = process.env.MONGO_URI;
@@ -41,6 +59,8 @@ const uri = process.env.MONGO_URI;
 app.listen(port , (req,res) => {
     console.log(`Server running on port : ${port}`);
 });
+
+server.listen(5000, () => console.log("🚀 Server + Socket.IO running on port 5000"));
 
 mongoose.connect(uri)
 .then(() => console.log("MongoDB connection established"))

@@ -73,6 +73,8 @@ export default function Navbar({ openAuthForm, isLoggedIn, handleLogout }) {
             <Link to="/strategytrade" onClick={handleLinkClick}>Strategy Trade</Link>
             <Link to="/portfolio" onClick={handleLinkClick}>Portfolio</Link>
             <Link to="/about" onClick={handleLinkClick}>About</Link>
+            <Link to="/signal" onClick={handleLinkClick}>Test Crypto</Link>
+
           </div>
         )}
       </div>
