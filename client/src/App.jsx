@@ -20,8 +20,8 @@ import SearchStocks from "./components/SearchStock/SearchStocks";
 import ChatbotUI from "./components/Chatbot/ChatbotUI";
 //import ChatbotBubble from "./components/Chatbot/ChatbotBubble";
 import ChatbotBubbleWithText from "./components/Chatbot/ChatbotBubbleWithText";
-import TestCrypto from "./components/Menu/Crypto/TestCrypto";
 
+import AlgoTradeForex from "./pages/AlgoTradeForex"; // תיקון השם ל-TestCrypto
 const queryClient = new QueryClient();
 
 function App() {
@@ -78,7 +78,8 @@ function App() {
           <Route path="/sentiment" element={<SentimentAnalysis />} />
           <Route path="/search" element={<SearchStocks />} />
           <Route path="/about" element={<About />} />
-          <Route path="/signal" element={<TestCrypto />} />
+          <Route path="/algotradeforex" element={<AlgoTradeForex />} />
+
         </Routes>
         {isAuthOpen && (
           <AuthForms formType={authType} onClose={closeAuthForm} onSuccess={handleLoginSuccess} />

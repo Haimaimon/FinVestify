@@ -12,8 +12,12 @@ const newsRoute = require('./routes/newsRoute');
 const geminaiRoutes = require('./routes/geminaiRoutes');
 const chatRoute = require('./routes/chatRoute');
 const stockRoute = require('./routes/stockRoute');
+
 const signalRoute = require("./routes/signalRoute");
 const tradeRoute = require("./routes/tradeRoute");
+const pendingRoute = require("./routes/pendingRoute");
+
+const { startAllWatchers } = require("./utils/priceWatcher");
 
 const { getNewsForStock } = require('./controllers/newsController');
 const app = express();
@@ -38,14 +42,15 @@ app.use("/api/news",newsRoute);
 
 app.get('/api/news', getNewsForStock);
 
-app.use("/api/signal", signalRoute);
 
 // שימוש בנתיבים (Routes) של Geminai
 app.use('/api/geminai', geminaiRoutes);
 app.use('/api/chat', chatRoute);
 app.use('/api/stocks', stockRoute);
 
+app.use("/api/signal", signalRoute);
 app.use("/api/trades", tradeRoute);
+app.use("/api/pending-signals", pendingRoute);
 
 // Start alert service
 const triggerAlerts = require('./utils/alertService');
@@ -60,7 +65,10 @@ app.listen(port , (req,res) => {
     console.log(`Server running on port : ${port}`);
 });
 
-server.listen(5000, () => console.log("🚀 Server + Socket.IO running on port 5000"));
+server.listen(5000, async () => {
+  console.log("🚀 Server + Socket.IO running on port 5000");
+  await startAllWatchers(io); // הפעלת המעקב על עסקאות ממתינות
+});
 
 mongoose.connect(uri)
 .then(() => console.log("MongoDB connection established"))

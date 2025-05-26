@@ -73,7 +73,6 @@ export default function Navbar({ openAuthForm, isLoggedIn, handleLogout }) {
             <Link to="/strategytrade" onClick={handleLinkClick}>Strategy Trade</Link>
             <Link to="/portfolio" onClick={handleLinkClick}>Portfolio</Link>
             <Link to="/about" onClick={handleLinkClick}>About</Link>
-            <Link to="/signal" onClick={handleLinkClick}>Test Crypto</Link>
 
           </div>
         )}
@@ -124,6 +123,11 @@ export default function Navbar({ openAuthForm, isLoggedIn, handleLogout }) {
           </>
         ) : (
           <div className="profile">
+            <Link to="/algotradeforex">
+              <Button variant="outlined" startIcon={<Favorite />}>
+                Algo Trade Forex
+              </Button>
+            </Link>
             <Link to="/favorites">
               <Button variant="outlined" startIcon={<Favorite />}>
                 Favorites
