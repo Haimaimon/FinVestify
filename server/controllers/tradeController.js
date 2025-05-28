@@ -40,9 +40,16 @@ exports.deletePendingSignal = async (req, res) => {
 
 exports.deleteTrade = async (req, res) => {
   try {
-    await Trade.findByIdAndDelete(req.params.id);
-    res.json({ message: "✅ טרייד נמחק בהצלחה" });
+    const result = await Trade.deleteMany({ groupId: req.params.id });
+    
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ message: "❗לא נמצאו טריידים עם groupId כזה" });
+    }
+
+    res.json({ message: "✅ כל הטריידים נמחקו בהצלחה לפי groupId" });
   } catch (err) {
-    res.status(500).json({ error: "❌ שגיאה במחיקת טרייד" });
+    console.error("❌ שגיאה בשרת במחיקת טרייד:", err);
+    res.status(500).json({ error: "❌ שגיאה במחיקת טרייד", details: err.message });
   }
 };
+

@@ -1,7 +1,7 @@
 // hooks/useSignalSocket.js
 import { useEffect, useState } from "react";
 import io from "socket.io-client";
-import { fetchPendingSignals, deleteSignal } from "../services/tradeService";
+import { fetchPendingSignals, deleteSignal ,deleteTrade} from "../services/tradeService";
 
 const socket = io("http://localhost:5000"); // שנה בהתאם לסביבת העבודה שלך
 
@@ -47,5 +47,5 @@ export const useSignalSocket = () => {
     }
   };
 
-  return { signals, handleDelete };
+  return { signals, handleDelete};
 };

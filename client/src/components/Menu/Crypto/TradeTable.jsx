@@ -4,6 +4,8 @@ import {
   Table, TableHead, TableBody, TableRow, TableCell,
   Paper, Typography, TableContainer, Chip, Snackbar, Alert
 } from "@mui/material";
+import DeleteIcon from "@mui/icons-material/Delete";
+import IconButton from "@mui/material/IconButton";
 import { useTradeHistory } from "../../../hooks/useTradeHistory"
 
 const TradeTable = () => {
@@ -11,7 +13,10 @@ const TradeTable = () => {
     trades,
     lastTrade,
     snackbarOpen,
-    handleCloseSnackbar
+    handleCloseSnackbar,
+    handleDeleteTrade,
+    deleteSuccess,
+    handleCloseDeleteSnackbar
   } = useTradeHistory();
 
   const formatDate = (isoDate) => {
@@ -58,6 +63,7 @@ const TradeTable = () => {
               <TableCell>תאריך פתיחה</TableCell>
               <TableCell>רווח / הפסד</TableCell>
               <TableCell>סטטוס</TableCell>
+              <TableCell>מחיקה</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -80,6 +86,15 @@ const TradeTable = () => {
                     variant="outlined"
                   />
                 </TableCell>
+                <TableCell>
+                <IconButton
+                  aria-label="delete"
+                  color="error"
+                  onClick={() => handleDeleteTrade(pair.buy?.groupId || pair.sell?.groupId)}
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -96,6 +111,17 @@ const TradeTable = () => {
           ✅ {lastTrade?.direction} בוצעה עבור {lastTrade?.asset} במחיר {lastTrade?.price}
         </Alert>
       </Snackbar>
+      <Snackbar
+        open={deleteSuccess}
+        autoHideDuration={3000}
+        onClose={handleCloseDeleteSnackbar}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert onClose={handleCloseDeleteSnackbar} severity="info" sx={{ width: "100%" }}>
+          🗑️ הטרייד נמחק בהצלחה!
+        </Alert>
+      </Snackbar>
+
     </>
   );
 };

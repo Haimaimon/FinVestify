@@ -1,7 +1,7 @@
 // hooks/useTradeHistory.js
 import { useEffect, useState } from "react";
 import io from "socket.io-client";
-import { fetchTradeHistory } from "../services/tradeService";
+import { fetchTradeHistory ,deleteTrade} from "../services/tradeService";
 
 const socket = io("http://localhost:5000");
 
@@ -10,17 +10,26 @@ export const useTradeHistory = () => {
   const [lastTrade, setLastTrade] = useState(null);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
 
-  useEffect(() => {
-    const loadTrades = async () => {
-      try {
-        const data = await fetchTradeHistory();
-        setTrades(data);
-      } catch (err) {
-        console.error("❌ שגיאה בטעינת היסטוריית טריידים:", err.message);
-      }
-    };
+  const refetchTrades = async () => {
+    try {
+      const data = await fetchTradeHistory();
+      setTrades(data);
+    } catch (err) {
+      console.error("❌ שגיאה בטעינת היסטוריית טריידים:", err.message);
+    }
+  };
 
-    loadTrades();
+  const handleDeleteTrade = async (groupId) => {
+    try {
+      await deleteTrade(groupId);
+      await refetchTrades();
+    } catch (err) {
+      console.error("❌ שגיאה במחיקת טרייד:", err);
+    }
+  };
+
+  useEffect(() => {
+    refetchTrades();
 
     socket.on("trade_executed", (newTrade) => {
       setTrades((prev) => [newTrade, ...prev]);
@@ -39,6 +48,8 @@ export const useTradeHistory = () => {
     trades,
     lastTrade,
     snackbarOpen,
-    handleCloseSnackbar
+    handleCloseSnackbar,
+    refetchTrades,
+    handleDeleteTrade // ✅ מחזיר את פונקציית המחיקה
   };
 };

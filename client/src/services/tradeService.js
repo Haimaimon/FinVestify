@@ -22,3 +22,11 @@ export const fetchTradeHistory = async () => {
 export const deleteSignal = async (id) => {
   await axios.delete(`/pending-signals/${id}`);
 };
+
+// מחיקת טרייד מההיסטוריה
+export const deleteTrade = async (id) => {
+  await axios.delete(`/trades/${id}`);
+};
+
+
+
