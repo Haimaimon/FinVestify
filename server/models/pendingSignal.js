@@ -1,6 +1,11 @@
 const mongoose = require("mongoose");
 
 const pendingSignalSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true
+  },
   asset: {
     type: String,
     required: true
@@ -18,7 +23,7 @@ const pendingSignalSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
-  stopLoss: { // ✅ חדש
+  stopLoss: {
     type: Number,
     default: null
   }

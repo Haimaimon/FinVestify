@@ -4,7 +4,7 @@ const { intervalMap } = require("../utils/priceWatcher");
 
 exports.getAllTrades = async (req, res) => {
   try {
-    const trades = await Trade.find().sort({ executedAt: -1 });
+    const trades = await Trade.find({ user: req.user._id }).sort({ executedAt: -1 });
     res.json(trades);
   } catch (err) {
     res.status(500).json({ error: "שגיאה בשליפת טריידים" });
@@ -13,12 +13,13 @@ exports.getAllTrades = async (req, res) => {
 
 exports.getPendingSignals = async (req, res) => {
   try {
-    const signals = await PendingSignal.find().sort({ createdAt: -1 });
+    const signals = await PendingSignal.find({ user: req.user._id }).sort({ createdAt: -1 });
     res.json(signals);
   } catch (err) {
     res.status(500).json({ error: "שגיאה בשליפת פקודות פתוחות" });
   }
 };
+
 exports.deletePendingSignal = async (req, res) => {
   const { id } = req.params.id;
   console.log(`🗑️ מנסה למחוק פקודה עם ID: ${id}`);

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, User, LogOut, Newspaper } from 'lucide-react';
+import { Menu, User, LogOut, Newspaper ,Coins} from 'lucide-react';
 import Button from '@mui/material/Button';
 import { Favorite } from '@material-ui/icons';
 import TextField from '@mui/material/TextField';
@@ -124,7 +124,7 @@ export default function Navbar({ openAuthForm, isLoggedIn, handleLogout }) {
         ) : (
           <div className="profile">
             <Link to="/algotradeforex">
-              <Button variant="outlined" startIcon={<Favorite />}>
+              <Button variant="outlined" startIcon={<Coins />}>
                 Algo Trade Forex
               </Button>
             </Link>

@@ -8,16 +8,15 @@ exports.handleSignal = async (req, res) => {
   if (!signal) return res.status(400).json({ error: "פורמט הודעה לא תקין" });
 
   try {
-    const saved = await PendingSignal.create(signal);
+    // הוספת user ID לסיגנל
+    
+    const signalWithUser = { ...signal, user: req.user._id };
+    const saved = await PendingSignal.create(signalWithUser);
 
-    // שליחת נוטיפיקציה ללקוח
     const io = req.app.get("socketio");
     io.emit("pending_created", saved);
-
-    // התחלת מעקב מיידי אחרי המחיר
     trackSignal(saved, io);
 
-    // הדפסות לטרמינל
     console.log(`📩 התקבלה פקודת ${signal.direction} ל־${signal.asset}`);
     console.log(`👉 מחיר כניסה שנבחר: ${signal.entry}`);
 
@@ -27,3 +26,4 @@ exports.handleSignal = async (req, res) => {
     res.status(500).json({ error: "שגיאה בשמירת פקודה" });
   }
 };
+

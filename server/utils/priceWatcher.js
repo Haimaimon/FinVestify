@@ -33,6 +33,7 @@ const trackSignal = async (signal, io) => {
           positionOpen = true;
 
           const createdTrade = await Trade.create({
+            user: signal.user,
             asset: signal.asset,
             direction: signal.direction,
             entry: signal.entry,
@@ -66,6 +67,7 @@ const trackSignal = async (signal, io) => {
 
               if (tpHit || slHit) {
                 const exitTrade = await Trade.create({
+                  user: signal.user,
                   asset: signal.asset,
                   direction: signal.direction === "BUY" ? "SELL" : "BUY",
                   entry: tpHit ? signal.takeProfit : signal.stopLoss,
