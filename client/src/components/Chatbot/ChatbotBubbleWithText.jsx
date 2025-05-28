@@ -1,5 +1,3 @@
-// components/Chatbot/ChatbotBubbleWithText.jsx
-
 import React from 'react';
 import { Box, Paper, Typography, Zoom } from '@mui/material';
 import ChatbotBubble from './ChatbotBubble';
@@ -17,7 +15,7 @@ export default function ChatbotBubbleWithText({ onClick }) {
           zIndex: 1300
         }}
       >
-        {/* תיבה המכילה את הטקסט */}
+        {/* Text container */}
         <Paper
           elevation={3}
           sx={{
@@ -27,11 +25,11 @@ export default function ChatbotBubbleWithText({ onClick }) {
           }}
         >
           <Typography variant="body2" fontWeight="500">
-            היי, אני הסוכן החכם שלך!
+            Hi, I'm your smart trading assistant!
           </Typography>
         </Paper>
         
-        {/* הכפתור הצף המקורי */}
+        {/* The original floating bubble button */}
         <ChatbotBubble onClick={onClick} />
       </Box>
     </Zoom>

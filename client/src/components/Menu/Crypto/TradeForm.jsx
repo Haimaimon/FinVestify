@@ -1,4 +1,3 @@
-// components/TradeForm.jsx
 import React from "react";
 import {
   Box, Button, Container, Typography, TextField, Paper, Snackbar, Alert
@@ -21,11 +20,11 @@ const TradeForm = () => {
     <Container maxWidth="md" sx={{ mt: 5 }}>
       <Paper elevation={4} sx={{ p: 4, borderRadius: 3, background: '#f9f9f9' }}>
         <Typography variant="h5" gutterBottom align="center" fontWeight="bold" color="primary">
-          🔔 מערכת שליחת פקודת טרייד
+          🔔 Trade Signal Submission
         </Typography>
 
         <TextField
-          label="הכנס הודעת טרייד"
+          label="Enter trade message"
           multiline
           rows={6}
           fullWidth
@@ -38,7 +37,7 @@ const TradeForm = () => {
 
         <Box textAlign="center">
           <Button variant="contained" color="primary" onClick={handleSubmit} sx={{ px: 4, py: 1.5 }}>
-            שלח פקודה
+            Submit Signal
           </Button>
         </Box>
 
@@ -46,12 +45,12 @@ const TradeForm = () => {
           <Box mt={3} textAlign="center">
             {takeProfit && (
               <Typography sx={{ color: "orange", fontWeight: 500 }}>
-                🎯 ממתין ל־TP: {takeProfit}
+                🎯 Waiting for TP: {takeProfit}
               </Typography>
             )}
             {stopLoss && (
               <Typography sx={{ color: "red", fontWeight: 500 }}>
-                ⛔ הגנה ב־SL: {stopLoss}
+                ⛔ Stop Loss set at: {stopLoss}
               </Typography>
             )}
           </Box>

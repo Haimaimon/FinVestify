@@ -8,13 +8,13 @@ const AlgoTradeForex = () => {
   return (
     <Container maxWidth="lg" sx={{ mt: 6 }}>
       
-      {/* ℹ️ הסבר מקוצר למשתמש */}
+      {/* ℹ️ Short user explanation */}
       <Paper elevation={2} sx={{ p: 2, mb: 3, backgroundColor: "#f9f9f9" }}>
         <Typography variant="subtitle1" gutterBottom>
-          🤖 Algo Trade – שליחת סיגנל למסחר אוטומטי
+          🤖 Algo Trade – Send a Signal for Automatic Trading
         </Typography>
         <Typography variant="body2">
-          שלח הודעת סיגנל בפורמט הבא, והמערכת תבצע עבורך את העסקה בזמן אמת.
+          Send a trading signal in the following format and the system will execute the trade for you in real time.
         </Typography>
 
         <Box sx={{ mt: 1, backgroundColor: "#fff", p: 1.5, borderRadius: 1, fontFamily: "monospace", fontSize: "0.85rem", whiteSpace: "pre-line" }}>
@@ -28,19 +28,19 @@ SL  109550.00`}
         </Box>
 
         <Typography variant="caption" sx={{ mt: 1, display: "block" }}>
-          🛈 יש להשתמש בפורמט מדויק באנגלית – כולל כותרות כמו "Direction" ו־"Entry Price".
+          🛈 Use the exact format in English – including labels like "Direction" and "Entry Price".
         </Typography>
       </Paper>
 
-      {/* 🔼 טופס שליחת הודעת טרייד */}
+      {/* 🔼 Trade signal submission form */}
       <TradeForm />
 
-      {/* 📡 פקודות פתוחות */}
+      {/* 📡 Open signals list */}
       <Box mt={6}>
         <SignalList />
       </Box>
 
-      {/* 📈 היסטוריית עסקאות */}
+      {/* 📈 Trade history table */}
       <Box mt={6}>
         <TradeTable />
       </Box>

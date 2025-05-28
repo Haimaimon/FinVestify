@@ -135,7 +135,7 @@ export default function Navbar({ openAuthForm, isLoggedIn, handleLogout }) {
             </Link>
             <Link to="/sentiment">
               <Button variant="outlined" startIcon={<Newspaper />}>
-                Senti
+                Sentiment History
               </Button>
             </Link>
             <Link to="/stocknews">

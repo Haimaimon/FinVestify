@@ -601,4 +601,6 @@ def get_stock_data(ticker):
         return jsonify({"error": str(e)}), 500
     
 if __name__ == "__main__":
+    print("== Registered Flask Routes ==")
+    print(app.url_map)
     app.run(port=5000,debug=True)

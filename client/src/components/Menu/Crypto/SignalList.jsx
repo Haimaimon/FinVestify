@@ -1,4 +1,3 @@
-// components/SignalList.jsx
 import React from "react";
 import {
   Table, TableHead, TableBody, TableRow, TableCell,
@@ -11,7 +10,7 @@ const SignalList = () => {
 
   const formatDate = (isoDate) => {
     const date = new Date(isoDate);
-    return date.toLocaleString("he-IL", {
+    return date.toLocaleString("en-GB", {
       year: "numeric",
       month: "short",
       day: "2-digit",
@@ -23,18 +22,18 @@ const SignalList = () => {
   return (
     <TableContainer component={Paper} sx={{ maxWidth: 800, mx: "auto", mt: 6, boxShadow: 3 }}>
       <Typography variant="h5" align="center" sx={{ py: 2, fontWeight: "bold" }}>
-        פקודות פתוחות (Pending Signals)
+        Open Trade Signals (Pending)
       </Typography>
       <Table>
         <TableHead>
           <TableRow>
-            <TableCell>נכס</TableCell>
-            <TableCell>כיוון</TableCell>
-            <TableCell>מחיר כניסה</TableCell>
-            <TableCell>TP (יעד רווח)</TableCell>
-            <TableCell>SL (הגנה)</TableCell>
-            <TableCell>תאריך יצירה</TableCell>
-            <TableCell>מחיקה</TableCell>
+            <TableCell>Asset</TableCell>
+            <TableCell>Direction</TableCell>
+            <TableCell>Entry Price</TableCell>
+            <TableCell>Take Profit (TP)</TableCell>
+            <TableCell>Stop Loss (SL)</TableCell>
+            <TableCell>Created At</TableCell>
+            <TableCell>Delete</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -59,7 +58,7 @@ const SignalList = () => {
                   size="small"
                   onClick={() => handleDelete(signal._id)}
                 >
-                  מחק
+                  Delete
                 </Button>
               </TableCell>
             </TableRow>

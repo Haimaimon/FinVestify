@@ -1,4 +1,3 @@
-// components/TradeTable.jsx
 import React from "react";
 import {
   Table, TableHead, TableBody, TableRow, TableCell,
@@ -6,7 +5,7 @@ import {
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import IconButton from "@mui/material/IconButton";
-import { useTradeHistory } from "../../../hooks/useTradeHistory"
+import { useTradeHistory } from "../../../hooks/useTradeHistory";
 
 const TradeTable = () => {
   const {
@@ -21,7 +20,7 @@ const TradeTable = () => {
 
   const formatDate = (isoDate) => {
     const date = new Date(isoDate);
-    return isNaN(date) ? "-" : date.toLocaleString("he-IL", {
+    return isNaN(date) ? "-" : date.toLocaleString("en-GB", {
       year: "numeric",
       month: "short",
       day: "2-digit",
@@ -51,19 +50,19 @@ const TradeTable = () => {
     <>
       <TableContainer component={Paper} sx={{ maxWidth: 900, mx: "auto", mt: 6, boxShadow: 3 }}>
         <Typography variant="h5" align="center" sx={{ py: 2, fontWeight: "bold" }}>
-          עסקאות שבוצעו (BUY + SELL)
+          Executed Trades (BUY + SELL)
         </Typography>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>נכס</TableCell>
-              <TableCell>כיוון</TableCell>
-              <TableCell>מחיר כניסה</TableCell>
-              <TableCell>מחיר יציאה</TableCell>
-              <TableCell>תאריך פתיחה</TableCell>
-              <TableCell>רווח / הפסד</TableCell>
-              <TableCell>סטטוס</TableCell>
-              <TableCell>מחיקה</TableCell>
+              <TableCell>Asset</TableCell>
+              <TableCell>Direction</TableCell>
+              <TableCell>Entry Price</TableCell>
+              <TableCell>Exit Price</TableCell>
+              <TableCell>Opened At</TableCell>
+              <TableCell>Profit / Loss</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Delete</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -81,20 +80,20 @@ const TradeTable = () => {
                 </TableCell>
                 <TableCell>
                   <Chip
-                    label={pair.sell ? "סגורה" : "פתוחה"}
+                    label={pair.sell ? "Closed" : "Open"}
                     color={pair.sell ? "success" : "warning"}
                     variant="outlined"
                   />
                 </TableCell>
                 <TableCell>
-                <IconButton
-                  aria-label="delete"
-                  color="error"
-                  onClick={() => handleDeleteTrade(pair.buy?.groupId || pair.sell?.groupId)}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </TableCell>
+                  <IconButton
+                    aria-label="delete"
+                    color="error"
+                    onClick={() => handleDeleteTrade(pair.buy?.groupId || pair.sell?.groupId)}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -108,9 +107,10 @@ const TradeTable = () => {
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert onClose={handleCloseSnackbar} severity="success" sx={{ width: "100%" }}>
-          ✅ {lastTrade?.direction} בוצעה עבור {lastTrade?.asset} במחיר {lastTrade?.price}
+          ✅ {lastTrade?.direction} executed for {lastTrade?.asset} at price {lastTrade?.price}
         </Alert>
       </Snackbar>
+
       <Snackbar
         open={deleteSuccess}
         autoHideDuration={3000}
@@ -118,10 +118,9 @@ const TradeTable = () => {
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert onClose={handleCloseDeleteSnackbar} severity="info" sx={{ width: "100%" }}>
-          🗑️ הטרייד נמחק בהצלחה!
+          🗑️ Trade successfully deleted!
         </Alert>
       </Snackbar>
-
     </>
   );
 };

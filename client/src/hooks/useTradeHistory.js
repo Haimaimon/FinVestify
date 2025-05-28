@@ -9,6 +9,7 @@ export const useTradeHistory = () => {
   const [trades, setTrades] = useState([]);
   const [lastTrade, setLastTrade] = useState(null);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [deleteSuccess, setDeleteSuccess] = useState(false); // ✅ חדש
 
   const refetchTrades = async () => {
     try {
@@ -23,6 +24,8 @@ export const useTradeHistory = () => {
     try {
       await deleteTrade(groupId);
       await refetchTrades();
+      setDeleteSuccess(true); // ✅ הצגת הצלחה
+
     } catch (err) {
       console.error("❌ שגיאה במחיקת טרייד:", err);
     }
@@ -43,6 +46,7 @@ export const useTradeHistory = () => {
   }, []);
 
   const handleCloseSnackbar = () => setSnackbarOpen(false);
+  const handleCloseDeleteSnackbar = () => setDeleteSuccess(false); // ✅ סוגר alert
 
   return {
     trades,
@@ -50,6 +54,8 @@ export const useTradeHistory = () => {
     snackbarOpen,
     handleCloseSnackbar,
     refetchTrades,
-    handleDeleteTrade // ✅ מחזיר את פונקציית המחיקה
+    handleDeleteTrade, // ✅ מחזיר את פונקציית המחיקה
+    deleteSuccess,               // ✅ חדש
+    handleCloseDeleteSnackbar    // ✅ חדש
   };
 };

@@ -1,4 +1,3 @@
-// components/Chatbot/ChatbotUI.jsx
 import React, { useState } from 'react';
 import { useChatbotLogic } from '../../hooks/useChatbotLogic';
 import ChatMessage from './ChatMessage';
@@ -60,7 +59,7 @@ export default function ChatbotUI({ isOpen, onClose }) {
           }}
         >
           <Typography variant="subtitle1" fontWeight="bold">
-            צ'אט שוק ההון
+            Stock Market Chatbot
           </Typography>
           <Box>
             <IconButton
@@ -102,7 +101,7 @@ export default function ChatbotUI({ isOpen, onClose }) {
             variant="body2"
             sx={{ margin: '5px', fontStyle: 'italic' }}
           >
-            טוען...
+            Loading...
           </Typography>
         )}
       </Box>
@@ -118,7 +117,7 @@ export default function ChatbotUI({ isOpen, onClose }) {
         <TextField
           variant="outlined"
           size="small"
-          placeholder="מה תרצה לשאול?"
+          placeholder="What would you like to ask?"
           value={userInput}
           onChange={(e) => setUserInput(e.target.value)}
           onKeyDown={(e) => {
@@ -129,7 +128,7 @@ export default function ChatbotUI({ isOpen, onClose }) {
           sx={{ flex: 1, mr: 1 }}
         />
         <Button variant="contained" endIcon={<SendIcon />} onClick={handleSend}>
-          שליחה
+          Send
         </Button>
       </Box>
     </Paper>
