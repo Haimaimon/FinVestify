@@ -1,42 +1,48 @@
-# render.yaml
+# render.yaml for FinVestify deployment
 
 services:
-  - type: web
-    name: frontend
-    runtime: static
+  - name: finvestify-client
+    type: web
+    env: static
     branch: master
-    :contentReference[oaicite:2]{index=2}
-    :contentReference[oaicite:3]{index=3}
-    env:
-      - key: NODE_ENV
-        value: "production"
+    staticPublishPath: client/dist  # assuming build in dist
+    buildCommand: npm install && npm run build
+    plan: free
 
-  - type: web
-    :contentReference[oaicite:4]{index=4}
-    runtime: node
+  - name: finvestify-node-server
+    type: web
+    env: node
     branch: master
-    :contentReference[oaicite:5]{index=5}
-    :contentReference[oaicite:6]{index=6}
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
+    plan: free
     envVars:
-      - key: PORT
-        value: "5555"
+      - key: MONGO_URI
+      - key: JWT_SECRET_KEY
+      - key: FINHUB_API_KEY
+      - key: NEWS_API_KEY
+      - key: GEMINAI_API_KEY
+      - key: GEMINAI_BASE_URL
+      - key: TWELVE_DATA_API_KEY
+      # ... כל משתני סביבה נדרשים
 
-  - type: web
-    :contentReference[oaicite:7]{index=7}
-    runtime: python
+  - name: finvestify-python-backend
+    type: web
+    env: python
     branch: master
-    :contentReference[oaicite:8]{index=8}
-    :contentReference[oaicite:9]{index=9}
+    buildCommand: cd server/python-backend && pip install -r requirements.txt
+    startCommand: cd server/python-backend && python stock_data.py
+    plan: free
     envVars:
-      - key: PORT
-        value: "5000"
+      - key: TWELVE_DATA_API_KEY
+      # ... עוד במידת הצורך
 
-  - type: web
-    :contentReference[oaicite:10]{index=10}
-    runtime: python
+  - name: finvestify-python-predict
+    type: web
+    env: python
     branch: master
-    :contentReference[oaicite:11]{index=11}
-    :contentReference[oaicite:12]{index=12}
+    buildCommand: cd server/python-backend && pip install -r requirements.txt
+    startCommand: cd server/python-backend && python predict_stock.py
+    plan: free
     envVars:
-      - key: PORT
-        value: "5658"
+      - key: TWELVE_DATA_API_KEY
