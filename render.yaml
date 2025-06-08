@@ -17,13 +17,21 @@ services:
     startCommand: cd server && npm start
     plan: free
     envVars:
-      - key: MONGO_URI
-      - key: JWT_SECRET_KEY
-      - key: FINHUB_API_KEY
-      - key: NEWS_API_KEY
-      - key: GEMINAI_API_KEY
-      - key: GEMINAI_BASE_URL
-      - key: TWELVE_DATA_API_KEY
+  - key: MONGO_URI
+    value: "${MONGO_URI}"
+  - key: JWT_SECRET_KEY
+    value: "${JWT_SECRET_KEY}"
+  - key: FINHUB_API_KEY
+    value: "${FINHUB_API_KEY}"
+  - key: NEWS_API_KEY
+    value: "${NEWS_API_KEY}"
+  - key: GEMINAI_API_KEY
+    value: "${GEMINAI_API_KEY}"
+  - key: GEMINAI_BASE_URL
+    value: "${GEMINAI_BASE_URL}"
+  - key: TWELVE_DATA_API_KEY
+    value: "${TWELVE_DATA_API_KEY}"
+
       # ... כל משתני סביבה נדרשים
 
   - name: finvestify-python-backend
@@ -35,6 +43,8 @@ services:
     plan: free
     envVars:
       - key: TWELVE_DATA_API_KEY
+        value: "${TWELVE_DATA_API_KEY}"
+
       # ... עוד במידת הצורך
 
   - name: finvestify-python-predict
@@ -46,3 +56,5 @@ services:
     plan: free
     envVars:
       - key: TWELVE_DATA_API_KEY
+        value: "${TWELVE_DATA_API_KEY}"
+
