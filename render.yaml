@@ -1,0 +1,42 @@
+# render.yaml
+
+services:
+  - type: web
+    name: frontend
+    runtime: static
+    branch: master
+    :contentReference[oaicite:2]{index=2}
+    :contentReference[oaicite:3]{index=3}
+    env:
+      - key: NODE_ENV
+        value: "production"
+
+  - type: web
+    :contentReference[oaicite:4]{index=4}
+    runtime: node
+    branch: master
+    :contentReference[oaicite:5]{index=5}
+    :contentReference[oaicite:6]{index=6}
+    envVars:
+      - key: PORT
+        value: "5555"
+
+  - type: web
+    :contentReference[oaicite:7]{index=7}
+    runtime: python
+    branch: master
+    :contentReference[oaicite:8]{index=8}
+    :contentReference[oaicite:9]{index=9}
+    envVars:
+      - key: PORT
+        value: "5000"
+
+  - type: web
+    :contentReference[oaicite:10]{index=10}
+    runtime: python
+    branch: master
+    :contentReference[oaicite:11]{index=11}
+    :contentReference[oaicite:12]{index=12}
+    envVars:
+      - key: PORT
+        value: "5658"
