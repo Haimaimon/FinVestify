@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, User, LogOut, Newspaper ,Coins} from 'lucide-react';
+import { Menu, User, LogOut, Newspaper, Coins } from 'lucide-react';
 import Button from '@mui/material/Button';
 import { Favorite } from '@material-ui/icons';
 import TextField from '@mui/material/TextField';
@@ -9,6 +9,9 @@ import SearchIcon from '@mui/icons-material/Search';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
+import Typography from '@mui/material/Typography'; 
+import {Box} from '@mui/material';
+import FinVestifyLogo from './assets/FinVestifyLogo.png'; // Adjust the path as necessary
 import axios from 'axios';
 import '../src/index.css';
 
@@ -16,23 +19,23 @@ export default function Navbar({ openAuthForm, isLoggedIn, handleLogout }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState([]);
-  const navigate = useNavigate(); // שימוש ב-useNavigate
+  const navigate = useNavigate();
 
   const handleToggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
   const handleLinkClick = () => {
-    setIsMenuOpen(false); // סגירת התפריט בלחיצה על קישור
+    setIsMenuOpen(false);
   };
 
   const handleLogoutAndRedirect = () => {
-    handleLogout(); // קריאה לפונקציית הלוגאוט שמגיעה מה-props
-    navigate('/'); // הפניה לדף הבית
+    handleLogout();
+    navigate('/');
   };
 
   const handleSearchChange = async (e) => {
-    const input = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); // רק אותיות גדולות באנגלית
+    const input = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
     setSearchTerm(input);
 
     if (input.length > 0) {
@@ -48,10 +51,10 @@ export default function Navbar({ openAuthForm, isLoggedIn, handleLogout }) {
     }
   };
 
-  const handleSearchSelect = (symbol,) => {
+  const handleSearchSelect = (symbol) => {
     setSearchTerm(symbol);
     setSuggestions([]);
-    navigate(`/search?query=${symbol}`); // הפניה לעמוד החיפוש
+    navigate(`/search?query=${symbol}`);
   };
 
   const handleSearchSubmit = () => {
@@ -60,10 +63,39 @@ export default function Navbar({ openAuthForm, isLoggedIn, handleLogout }) {
 
   return (
     <nav className="navbar">
-      <div className="navbar-left">
+      <div className="navbar-left" style={{ display: 'flex', alignItems: 'center' }}>
         <Button onClick={handleToggleMenu}>
           <Menu />
         </Button>
+
+        {/* FinVestify Logo + Text */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            ml: 1,
+            cursor: 'pointer',
+            userSelect: 'none',
+          }}
+          onClick={() => navigate('/')}
+        >
+          <img
+            src={FinVestifyLogo}
+            alt="FinVestify"
+            style={{ height: '50px', marginRight: '8px'}}
+          />
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 'bold',
+              color: 'primary.main',
+              fontSize: { xs: '1rem', sm: '2.0rem' },
+            }}
+          >
+            FinVestify
+          </Typography>
+        </Box>
+
         {isMenuOpen && (
           <div className="menu">
             <Link to="/" onClick={handleLinkClick}>Home</Link>
@@ -73,10 +105,10 @@ export default function Navbar({ openAuthForm, isLoggedIn, handleLogout }) {
             <Link to="/strategytrade" onClick={handleLinkClick}>Strategy Trade</Link>
             <Link to="/portfolio" onClick={handleLinkClick}>Portfolio</Link>
             <Link to="/about" onClick={handleLinkClick}>About</Link>
-
           </div>
         )}
       </div>
+
       <div className="navbar-center" style={{ position: 'relative' }}>
         <TextField
           variant="outlined"
@@ -115,6 +147,7 @@ export default function Navbar({ openAuthForm, isLoggedIn, handleLogout }) {
           <SearchIcon />
         </IconButton>
       </div>
+
       <div className="navbar-right">
         {!isLoggedIn ? (
           <>

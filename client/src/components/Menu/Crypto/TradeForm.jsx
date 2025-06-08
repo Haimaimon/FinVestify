@@ -4,7 +4,7 @@ import {
 } from "@mui/material";
 import { useTradeForm } from "../../../hooks/useTradeForm";
 
-const TradeForm = () => {
+const TradeForm = ({ selectedAsset }) => {
   const {
     message,
     setMessage,
@@ -15,7 +15,13 @@ const TradeForm = () => {
     takeProfit,
     stopLoss,
   } = useTradeForm();
-
+  
+  // כשהמשתמש בוחר Asset מה־TickerSidebar → נעדכן את ה־message אוטומטית
+  React.useEffect(() => {
+    if (selectedAsset) {
+      setMessage(`🔔${selectedAsset}🔔\nDirection: BUY\nEntry Price: \nTP1 \nTP2 \nTP3 \nSL`);
+    }
+  }, [selectedAsset, setMessage]);
   return (
     <Container maxWidth="md" sx={{ mt: 5 }}>
       <Paper elevation={4} sx={{ p: 4, borderRadius: 3, background: '#f9f9f9' }}>

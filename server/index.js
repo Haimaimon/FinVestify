@@ -16,6 +16,8 @@ const stockRoute = require('./routes/stockRoute');
 const signalRoute = require("./routes/signalRoute");
 const tradeRoute = require("./routes/tradeRoute");
 const pendingRoute = require("./routes/pendingRoute");
+const backtestRoute = require("./routes/backtestRoute");
+const priceTickerRoutes = require("./routes/priceTickerRoutes");
 
 const { startAllWatchers } = require("./utils/priceWatcher");
 
@@ -51,6 +53,10 @@ app.use('/api/stocks', stockRoute);
 app.use("/api/signal", signalRoute);
 app.use("/api/trades", tradeRoute);
 app.use("/api/pending-signals", pendingRoute);
+
+app.use("/api/backtest", backtestRoute);
+
+app.use("/api/prices", priceTickerRoutes);
 
 // Start alert service
 const triggerAlerts = require('./utils/alertService');
