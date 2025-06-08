@@ -32,8 +32,6 @@ services:
       - key: TWELVE_DATA_API_KEY
         value: "${TWELVE_DATA_API_KEY}"
 
-      # ... כל משתני סביבה נדרשים
-
   - name: finvestify-python-backend
     type: web
     env: python
@@ -45,8 +43,6 @@ services:
       - key: TWELVE_DATA_API_KEY
         value: "${TWELVE_DATA_API_KEY}"
 
-      # ... עוד במידת הצורך
-
   - name: finvestify-python-predict
     type: web
     env: python
@@ -57,4 +53,3 @@ services:
     envVars:
       - key: TWELVE_DATA_API_KEY
         value: "${TWELVE_DATA_API_KEY}"
-
