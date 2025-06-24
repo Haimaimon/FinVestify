@@ -292,9 +292,9 @@ def map_period_to_dates(period):
 
 def fetch_stock_data(ticker, period="1y", interval="1d"):
     """
-    Fetch historical stock data using Polygon.io API.
+    Fetch historical stock data using Polygon.io API with diagnostics.
     """
-    print(f"📡 Fetching data for ticker: {ticker}, period: {period}, interval: {interval}")
+    print(f"📡 Fetching: {ticker} | Period: {period} | Interval: {interval}")
 
     interval_map = {
         "1m": ("minute", 1),
@@ -308,18 +308,16 @@ def fetch_stock_data(ticker, period="1y", interval="1d"):
     }
 
     if interval not in interval_map:
-        print("❌ Invalid interval provided")
+        print("❌ Invalid interval")
         return pd.DataFrame()
 
     timeframe, multiplier = interval_map[interval]
-
-    # ✅ מחשבים תאריכים לפי תקופת ה־period
     start_date, end_date = map_period_to_dates(period)
 
-    # 📦 בניית ה-URL ל-Polygon
     url = (
-        f"https://api.polygon.io/v2/aggs/ticker/{ticker.upper()}/range/{multiplier}/{timeframe}/"
-        f"{start_date}/{end_date}?adjusted=true&sort=asc&limit=5000&apiKey={POLYGON_API_KEY}"
+        f"https://api.polygon.io/v2/aggs/ticker/{ticker.upper()}/range/"
+        f"{multiplier}/{timeframe}/{start_date}/{end_date}"
+        f"?adjusted=true&sort=asc&limit=5000&apiKey={POLYGON_API_KEY}"
     )
 
     try:
@@ -327,7 +325,7 @@ def fetch_stock_data(ticker, period="1y", interval="1d"):
         data = response.json()
 
         if "results" not in data or not data["results"]:
-            print("⚠️ No data found for the requested ticker and interval.")
+            print("⚠️ No results found")
             return pd.DataFrame()
 
         df = pd.DataFrame(data["results"])
@@ -335,18 +333,28 @@ def fetch_stock_data(ticker, period="1y", interval="1d"):
         df.set_index("t", inplace=True)
 
         df.rename(columns={
-            "o": "Open",
-            "h": "High",
-            "l": "Low",
-            "c": "Close",
-            "v": "Volume"
+            "o": "Open", "h": "High", "l": "Low",
+            "c": "Close", "v": "Volume"
         }, inplace=True)
 
-        return df[["Open", "High", "Low", "Close", "Volume"]]
+        df = df[["Open", "High", "Low", "Close", "Volume"]]
+        actual_start = df.index.min().strftime("%Y-%m-%d")
+        actual_end = df.index.max().strftime("%Y-%m-%d")
+
+        print(f"   ✅ Received {len(df)} rows from {actual_start} to {actual_end}")
+
+        # בדיקה אם קיבלנו פחות משנה למרות שביקשנו יותר
+        requested_years = (datetime.strptime(end_date, "%Y-%m-%d") - datetime.strptime(start_date, "%Y-%m-%d")).days // 365
+        actual_days = (df.index.max() - df.index.min()).days
+        if requested_years >= 5 and actual_days < 365:
+            print("   ⚠️ Data range seems truncated. Check if ticker is new or limited by Polygon.")
+
+        return df
 
     except Exception as e:
-        print(f"❌ Error fetching stock data from Polygon.io: {e}")
+        print(f"❌ Error fetching data: {e}")
         return pd.DataFrame()
+
 
 
 

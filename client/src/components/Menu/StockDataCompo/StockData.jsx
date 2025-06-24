@@ -83,15 +83,18 @@ function StockData() {
   
     const fetchData = async () => {
       console.log(`Fetching stock data for: ${ticker} with interval: ${candleSize}`);
+      console.log("✅ Moving Averages Periods:", movingAverages);
 
       try {
-        const response = await axios.get(`http://localhost:5000/api/stock/${ticker}`, {
+        const response = await axios.get(`http://127.0.0.1:5000/api/stock/${ticker}`, {
           params: { interval: candleSize }
         });
         console.log("API Response:", response.data);
 
+        // בדיקת נתונים שהגיעו מהשרת
         if (!response.data.dates || response.data.dates.length === 0) {
-          console.error("Empty data received from API");
+          toast.error(`No data found for ${ticker} with interval ${candleSize}`);
+          setChartData([]);
           return;
         }
 
@@ -99,7 +102,7 @@ function StockData() {
         const chartData = dates.map((timestamp, index) => ({
           time: timestamp / 1000, // ממיר למספר שניות
           open: open[index],
-          high: high[index],
+          high: high[index], 
           low: low[index],
           close: prices[index]
         })).sort((a, b) => a.time - b.time);
@@ -118,18 +121,34 @@ function StockData() {
         setChartData(chartData);
         candlestickSeriesRef.current.setData(chartData);
 
-        // מחיקת סדרות קודמות של ממוצעים נעים
+        // מחיקת סדרות קודמות
         movingAverageSeriesRef.current.forEach(series => chartRef.current.removeSeries(series));
         movingAverageSeriesRef.current = [];
 
-        // הוספת סדרות חדשות
+         // הוספת ממוצעים נעים
         movingAverages.forEach((period) => {
+          if (typeof period !== 'number' || isNaN(period) || period <= 0) {
+            console.warn(`⛔ Invalid MA period: ${period}`);
+            return;
+          }
+
           const maData = addMovingAverage(chartData, period);
+          if (maData.length === 0) {
+            console.warn(`⚠️ Skipping MA${period} - not enough data`);
+            return;
+          }
+
+          console.log(`✅ MA${period} calculated:`, maData.slice(-5)); // הדפס אחרונות לבדיקה
+
           const color = getRandomColor();
-          const series = chartRef.current.addLineSeries({ color, title: `MA ${period}` });
+          const series = chartRef.current.addLineSeries({
+            color,
+            title: `MA ${period}`,
+          });
           series.setData(maData);
-          movingAverageSeriesRef.current.push(series); // שמירה של הסדרה שנוספה
+          movingAverageSeriesRef.current.push(series);
         });
+
         
         if (selectedIndicator === 'macd') {
           const { macdLine, signalLine, histogram } = calculateMACD(chartData);
@@ -163,6 +182,8 @@ function StockData() {
 
       } catch (error) {
         console.error("Error fetching data:", error);
+        toast.error(`Failed to fetch stock data for ${ticker}`);
+        setChartData([]);
       }
     };
 
@@ -170,7 +191,9 @@ function StockData() {
   }, [ticker, candleSize, movingAverages,selectedIndicator,portfolio]);
 
   const addMovingAverage = (data, period) => {
-    let maData = [];
+    if (!data || data.length === 0 || period > data.length) return [];
+
+    const maData = [];
     for (let i = period - 1; i < data.length; i++) {
       const slice = data.slice(i - period + 1, i + 1);
       const avg = slice.reduce((acc, val) => acc + val.close, 0) / period;
@@ -178,6 +201,7 @@ function StockData() {
     }
     return maData;
   };
+
 
   const calculateEMA = (data, period) => {
     let multiplier = 2 / (period + 1);

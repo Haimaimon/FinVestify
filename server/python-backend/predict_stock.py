@@ -117,12 +117,6 @@ def normalize_data(data, feature, stock_name=None):
     scaled_data = scaler.fit_transform(data[feature_column].values.reshape(-1, 1))
     return scaled_data, scaler
 
-
-
-
-
-
-
 # פונקציה ליצירת רצפים עבור המודל
 def create_sequences(data, sequence_length):
     sequences = []
@@ -248,7 +242,14 @@ def predict_stock():
     prediction = model.predict(last_sequence)
     predicted_price = scaler.inverse_transform(prediction)[0][0]
 
-    return jsonify({"predicted_price": round(float(predicted_price), 2)})
+    # לפני return jsonify...
+    historical_prices = stock_data["Close"][-sequence_length:].tolist()
+    historical_dates = stock_data.index[-sequence_length:].strftime('%Y-%m-%d').tolist()
+
+    return jsonify({
+        "predicted_price": round(float(predicted_price), 2),
+        "historical_data": list(zip(historical_dates, historical_prices))
+    })
 
 # נתיב הקובץ
 DATA_PATH = "datastocks/sp500_companies.csv"

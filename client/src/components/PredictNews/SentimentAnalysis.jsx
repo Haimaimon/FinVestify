@@ -12,7 +12,7 @@ const SentimentAnalysis = () => {
   const fetchAnalysis = async () => {
     setLoading(true);
     try {
-      const response = await axios.post("http://localhost:5000/api/historical-sentiment", {
+      const response = await axios.post("http://127.0.0.1:5000/api/historical-sentiment", {
         stock_name: stockName,
       });
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
   createChart,
@@ -21,18 +21,25 @@ const StockPrediction = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post("http://localhost:5658/api/predict", {
+      const response = await axios.post("http://127.0.0.1:5658/api/predict", {
         stock_name: stockName,
         sequence_length: sequenceLength,
       });
 
       setPredictedPrice(response.data.predicted_price);
-      console.log("data",predictedPrice)
-      // Mock historical data for the chart
-      const historical = Array.from({ length: sequenceLength }, (_, i) => ({
-        time: i,
-        value: Math.random() * 100, // Replace with real data if available
+
+      const historical = response.data.historical_data.map(([dateStr, value]) => ({
+        time: Math.floor(new Date(dateStr).getTime() / 1000),
+        value: value,
       }));
+
+      // Add predicted price as last point
+      historical.push({
+        time: Math.floor(Date.now() / 1000),
+        value: response.data.predicted_price,
+        isPrediction: true, // optional flag for future use
+      });
+
       setHistoricalData(historical);
     } catch (err) {
       setError(err.response?.data?.error || "An error occurred");
@@ -43,7 +50,7 @@ const StockPrediction = () => {
 
   const renderChart = () => {
     const chartContainer = document.getElementById("chart-container");
-    chartContainer.innerHTML = ""; // Clear existing chart
+    chartContainer.innerHTML = "";
 
     const chart = createChart(chartContainer, {
       width: 600,
@@ -53,31 +60,54 @@ const StockPrediction = () => {
         textColor: "#000000",
       },
       grid: {
-        vertLines: {
-          color: "#e1e1e1",
-        },
-        horzLines: {
-          color: "#e1e1e1",
-        },
+        vertLines: { color: "#e1e1e1" },
+        horzLines: { color: "#e1e1e1" },
       },
+      crosshair: { mode: 0 },
+      rightPriceScale: { borderColor: "#ccc" },
+      timeScale: { borderColor: "#ccc" },
     });
 
-    const lineSeries = chart.addLineSeries();
-    lineSeries.setData(historicalData);
+    const fullSeries = chart.addLineSeries({
+      lineWidth: 2,
+      color: "#1976d2",
+      lastValueVisible: true,
+      priceLineVisible: true,
+    });
 
-    if (predictedPrice) {
-      lineSeries.update({
-        time: sequenceLength,
-        value: predictedPrice,
-      });
-    }
+    const dataWithoutLast = historicalData.slice(0, -1);
+    const lastPoint = historicalData[historicalData.length - 1];
+    const fullData = [...dataWithoutLast, lastPoint];
+
+    fullSeries.setData(fullData);
+
+    // ✅ Add marker for prediction point
+    fullSeries.setMarkers([
+      {
+        time: lastPoint.time,
+        position: 'aboveBar',
+        color: '#d32f2f',
+        shape: 'arrowUp',
+        text: `Predicted: $${lastPoint.value.toFixed(2)}`
+      }
+    ]);
+
+    const legend = document.createElement("div");
+    legend.innerHTML = `
+      <div style="text-align:left; font-size: 14px; margin-top: 10px">
+        <div><span style="color:#1976d2;">●</span> Historical Price</div>
+        <div><span style="color:#d32f2f;">▲</span> Predicted Price</div>
+      </div>
+    `;
+    chartContainer.appendChild(legend);
   };
 
-  React.useEffect(() => {
-    if (historicalData.length > 0 || predictedPrice !== null) {
+
+  useEffect(() => {
+    if (historicalData.length > 0) {
       renderChart();
     }
-  }, [historicalData, predictedPrice]);
+  }, [historicalData]);
 
   return (
     <Box

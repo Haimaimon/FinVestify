@@ -107,3 +107,18 @@
 .button-logout:hover {
   background-color: #c0392b;
 }
+
+@keyframes slideIn {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.4s ease-in-out;
+}

@@ -58,15 +58,18 @@ const StrategyForm = ({ onRun, isLoading }) => {
           <TextField
             label="Short MA Period"
             value={maShort}
-            onChange={(e) => setMaShort(Number(e.target.value))}
+            onChange={(e) => setMaShort(Math.max(1, Number(e.target.value)))}
             type="number"
+            inputProps={{ min: 1 }}
             fullWidth
           />
+
           <TextField
             label="Long MA Period"
             value={maLong}
-            onChange={(e) => setMaLong(Number(e.target.value))}
+            onChange={(e) => setMaLong(Math.max(1, Number(e.target.value)))}
             type="number"
+            inputProps={{ min: 1 }}
             fullWidth
           />
         </>
