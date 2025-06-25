@@ -1,6 +1,6 @@
 # Ignore Python virtual environment
 server/python-backend/data/
-server/python-backend/datastocks/
+#server/python-backend/datastocks/
 server/python-backend/myenv/
 
 # Ignore ZIP files
