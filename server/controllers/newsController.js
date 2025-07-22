@@ -39,6 +39,7 @@ const sendNotification = (newsItem) => {
     title: newsItem.title,
     description: newsItem.description,
     url: newsItem.url,
+    date: newsItem.publishedAt,
   });
 };
 

@@ -4,6 +4,8 @@ import TextField from '@mui/material/TextField';
 import { X } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import axios from '../features/axiosConfig';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import '../index.css';
 
 export default function AuthForms({ formType, onClose, onSuccess }) {
@@ -16,35 +18,35 @@ export default function AuthForms({ formType, onClose, onSuccess }) {
   const loginMutation = useMutation({
     mutationFn: (userData) => axios.post('/users/login', userData),
     onSuccess: (data) => {
-      console.log("Response data:", data.data); // הצגת נתוני התגובה
       const token = data.data;
-      localStorage.setItem('tokenim', token); // שמירת הטוקן
+      localStorage.setItem('tokenim', token);
+      toast.success('Login successful');
       onSuccess(token);
     },
     onError: (error) => {
-      alert(error.response?.data || 'Login failed');
+      toast.error(error.response?.data || 'Login failed');
     },
   });
 
   const registerMutation = useMutation({
     mutationFn: (userData) => axios.post('/users/register', userData),
     onSuccess: () => {
-      alert('Registration successful');
+      toast.success('Registration successful');
       onClose();
     },
     onError: (error) => {
-      alert(error.response?.data || 'Registration failed');
+      toast.error(error.response?.data || 'Registration failed');
     },
   });
 
   const handleRegister = (e) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      alert('Passwords do not match');
+      toast.warning('Passwords do not match');
       return;
     }
     if (initialBalance <= 0) {
-      alert('Initial balance must be greater than zero');
+      toast.warning('Initial balance must be greater than zero');
       return;
     }
     registerMutation.mutate({ name, email, password, initial_balance: initialBalance });
@@ -64,14 +66,55 @@ export default function AuthForms({ formType, onClose, onSuccess }) {
         <h2>{formType === 'login' ? 'Login' : 'Register'}</h2>
         <form onSubmit={formType === 'login' ? handleLogin : handleRegister}>
           {formType === 'register' && (
-            <TextField id="name" label="Name" type="text" fullWidth value={name} onChange={(e) => setName(e.target.value)} required />
+            <TextField
+              id="name"
+              label="Name"
+              type="text"
+              fullWidth
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
           )}
-          <TextField id="email" label="Email" type="email" fullWidth value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <TextField id="password" label="Password" type="password" fullWidth value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <TextField
+            id="email"
+            label="Email"
+            type="email"
+            fullWidth
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <TextField
+            id="password"
+            label="Password"
+            type="password"
+            fullWidth
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
           {formType === 'register' && (
             <>
-              <TextField id="confirm-password" label="Confirm Password" type="password" fullWidth value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
-              <TextField id="initial-balance" label="Initial Balance" type="number" fullWidth value={initialBalance} onChange={(e) => setInitialBalance(e.target.value)} required inputProps={{ min: 1 }} />
+              <TextField
+                id="confirm-password"
+                label="Confirm Password"
+                type="password"
+                fullWidth
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+              <TextField
+                id="initial-balance"
+                label="Initial Balance"
+                type="number"
+                fullWidth
+                value={initialBalance}
+                onChange={(e) => setInitialBalance(e.target.value)}
+                required
+                inputProps={{ min: 1 }}
+              />
             </>
           )}
           <Button type="submit" variant="contained" fullWidth>

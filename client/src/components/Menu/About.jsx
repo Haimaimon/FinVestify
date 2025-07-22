@@ -1,6 +1,6 @@
 import React from 'react';
 import { Container, Typography, Grid, Card, CardContent, Avatar, Button } from '@mui/material';
-import { ShowChart, TrendingUp, Security, AccountBalance } from '@mui/icons-material';
+import { ShowChart, TrendingUp, Security, AccountBalance, Psychology, AutoAwesome } from '@mui/icons-material';
 import './About.css';
 
 function About() {
@@ -74,6 +74,36 @@ function About() {
                 <Typography variant="h6">Portfolio Growth</Typography>
                 <Typography variant="body2">
                   Track your investments and see your portfolio grow with ease.
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* 🔮 Stock Prediction Feature */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Card className="info-card">
+              <Avatar className="info-icon">
+                <Psychology />
+              </Avatar>
+              <CardContent>
+                <Typography variant="h6">Stock Prediction</Typography>
+                <Typography variant="body2">
+                  Use AI-based models to forecast future stock prices and trends.
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* 🤖 Automated Trading from Signals */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Card className="info-card">
+              <Avatar className="info-icon">
+                <AutoAwesome />
+              </Avatar>
+              <CardContent>
+                <Typography variant="h6">Auto-Trading Bot</Typography>
+                <Typography variant="body2">
+                  Automatically execute trades from chat signals using intelligent automation.
                 </Typography>
               </CardContent>
             </Card>

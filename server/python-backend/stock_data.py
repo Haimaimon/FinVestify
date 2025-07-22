@@ -3,13 +3,12 @@ from flask_cors import CORS
 import yfinance as yf
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
-import tensorflow as tf
 from ta import add_all_ta_features
-from ta.trend import SMAIndicator
 import requests
 from transformers import pipeline
+import time
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 
 app = Flask(__name__)
@@ -21,6 +20,7 @@ sentiment_analyzer = pipeline("sentiment-analysis")
 # NewsAPI Configuration
 NEWS_API_KEY = "941c905a04a24e6c8edee618209cf60e"
 NEWS_API_URL = "https://newsapi.org/v2/everything"
+POLYGON_API_KEY = "QK_TtkEeZYSntEOQwX5YeSfNwhbsYtfd"
 
 # -----------------------------------------------
 # Utility Functions
@@ -54,52 +54,71 @@ def analyze_sentiment_with_huggingface(content):
         print(f"Error analyzing sentiment: {e}")
         return "Neutral", 0.0
 
+def convert_period_to_start_date(period_str):
+    """
+    Converts yFinance-style period like '6mo' or '1y' into start_date (YYYY-MM-DD).
+    """
+    now = datetime.now()
+    if period_str.endswith("d"):
+        days = int(period_str.replace("d", ""))
+        return (now - timedelta(days=days)).strftime("%Y-%m-%d")
+    elif period_str.endswith("mo"):
+        months = int(period_str.replace("mo", ""))
+        return (now - relativedelta(months=months)).strftime("%Y-%m-%d")
+    elif period_str.endswith("y"):
+        years = int(period_str.replace("y", ""))
+        return (now - relativedelta(years=years)).strftime("%Y-%m-%d")
+    else:
+        raise ValueError("Unsupported period format")
+    
 def fetch_historical_data(stock_name, period="6mo"):
-    """
-    Fetches historical stock data for the given stock using yfinance.
-    """
-    print(f"Fetching historical data for stock: {stock_name}, period: {period}")
     try:
-        # Fetch stock data with the specified period
-        stock_data = yf.download(stock_name, period=period, interval="1d", progress=False)
-        print(f"Fetched data length for {period}: {len(stock_data)} rows")  # Log the length of fetched data
-        
-        if stock_data.empty:
-            raise ValueError(f"No historical data found for stock: {stock_name}, period: {period}")
+        print(f"📡 Fetching historical data for {stock_name} from Polygon.io, period={period}")
+        start_date = convert_period_to_start_date(period)
+        end_date = datetime.now().strftime("%Y-%m-%d")
 
-        # Handle MultiIndex columns
-        if isinstance(stock_data.columns, pd.MultiIndex):
-            stock_data.columns = stock_data.columns.droplevel(0)
+        url = f"https://api.polygon.io/v2/aggs/ticker/{stock_name}/range/1/day/{start_date}/{end_date}?adjusted=true&sort=asc&limit=50000&apiKey={POLYGON_API_KEY}"
+        response = requests.get(url)
 
-        # Standardize column names
-        stock_data.columns = ["Adj_Close", "Close", "High", "Low", "Open", "Volume"]
+        if response.status_code != 200:
+            raise Exception("Polygon API request failed")
 
-        # Reset index to make `Date` a column
-        stock_data.reset_index(inplace=True)
+        data = response.json()
+        if "results" not in data or not data["results"]:
+            raise Exception("No historical data found")
 
-        print(f"First few rows of fetched data:\n{stock_data.head()}")  # Log the first few rows of data
-        return stock_data
+        df = pd.DataFrame(data["results"])
+        df["Date"] = pd.to_datetime(df["t"], unit="ms").dt.strftime("%Y-%m-%d")
+        df.rename(columns={"o": "Open", "h": "High", "l": "Low", "c": "Close", "v": "Volume"}, inplace=True)
+        return df[["Date", "Open", "High", "Low", "Close", "Volume"]]
+
     except Exception as e:
-        print(f"Error fetching historical data: {e}")
+        print(f"❌ Error fetching historical data from Polygon: {e}")
         return pd.DataFrame()
-
-
 
 
 def calculate_historical_impact(stock_name, published_at, sentiment):
     """
-    Calculates the impact of sentiment on stock price based on historical data.
+    Fetch closing prices from Polygon and calculate sentiment impact.
     """
     try:
         published_date = published_at.split("T")[0]
-        next_day_date = (datetime.strptime(published_date, "%Y-%m-%d") + timedelta(days=2)).strftime("%Y-%m-%d")
-        stock_data = yf.download(stock_name, start=published_date, end=next_day_date, progress=False)
+        start_date = published_date
+        end_date = (datetime.strptime(published_date, "%Y-%m-%d") + timedelta(days=3)).strftime("%Y-%m-%d")
 
-        if stock_data.empty or "Close" not in stock_data.columns or stock_data["Close"].empty:
-            return f"No valid close price data for {stock_name} on {published_date} or the next day"
+        url = f"https://api.polygon.io/v2/aggs/ticker/{stock_name}/range/1/day/{start_date}/{end_date}?adjusted=true&sort=asc&limit=3&apiKey={POLYGON_API_KEY}"
+        response = requests.get(url)
 
-        close_price = stock_data["Close"].iloc[0]
-        next_day_close_price = stock_data["Close"].iloc[-1]
+        if response.status_code != 200:
+            raise Exception("Polygon API error")
+
+        data = response.json()
+        prices = data.get("results", [])
+        if len(prices) < 2:
+            return f"Not enough data to analyze impact for {stock_name} on {published_date}"
+
+        close_price = prices[0]["c"]
+        next_day_close_price = prices[1]["c"]
         price_change = ((next_day_close_price - close_price) / close_price) * 100
 
         if sentiment == "POSITIVE" and price_change > 0:
@@ -113,7 +132,7 @@ def calculate_historical_impact(stock_name, published_at, sentiment):
         else:
             return f"Neutral impact: No significant change ({price_change:.2f}%)"
     except Exception as e:
-        print(f"Error calculating impact: {e}")
+        print(f"❌ Error calculating impact with Polygon: {e}")
         return "Error calculating impact"
 
 def fetch_historical_sentiment(stock_name):
@@ -248,192 +267,348 @@ def analyze_historical_sentiment():
         return jsonify({"error": str(e)}), 500
 
 
-    
-# פונקציה לבדיקה האם התנאי מתקיים
-def evaluate_condition(data, condition):
-    try:
-        # Replace simple placeholders with DataFrame columns
-        condition = condition.replace("MA", "data['MA']")
-        return data.eval(condition)
-    except Exception as e:
-        print(f"Error evaluating condition: {e}")
-        return pd.Series([False] * len(data))
 
-# פונקציה לבדיקת אסטרטגיה
-@app.route('/api/strategy', methods=['POST'])
-def strategy_test():
-    data = request.get_json()
-    ticker = data.get("ticker")
-    interval = data.get("interval", "1d")
-    period = data.get("period", "1y")
-    buy_condition = data.get("buy_condition")
-    sell_condition = data.get("sell_condition")
+def map_period_to_dates(period):
+    """
+    ממיר period כמו '1y', '5d', 'max' לתאריכים התחלה וסיום (YYYY-MM-DD)
+    """
+    now = datetime.now()
+    period_map = {
+        "1d": now - timedelta(days=1),
+        "5d": now - timedelta(days=5),
+        "1mo": now - timedelta(days=30),
+        "3mo": now - timedelta(days=90),
+        "6mo": now - timedelta(days=180),
+        "1y": now - timedelta(days=365),
+        "2y": now - timedelta(days=730),
+        "5y": now - timedelta(days=1825),
+        "10y": now - timedelta(days=3650),
+        "ytd": datetime(now.year, 1, 1),
+        "max": datetime(2010, 1, 1),  # תאריך ברירת מחדל
+    }
+    start_date = period_map.get(period.lower(), now - timedelta(days=365))
+    return start_date.strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d")
 
-    # שליפה של הממוצעים מהבקשה או הגדרת ערכי ברירת מחדל
-    ma_short_period = int(data.get("ma_short", 20))
-    ma_long_period = int(data.get("ma_long", 50))
-    
-    # הורדת נתונים
-    stock_data = yf.download(ticker, period=period, interval=interval)
-    if stock_data.empty:
-        return jsonify({"error": "No data found for the ticker"}), 404
 
-    # חישוב הממוצעים הנעים בהתבסס על הפרמטרים שהתקבלו
-    stock_data[f'MA{ma_short_period}'] = SMAIndicator(stock_data['Close'], window=ma_short_period).sma_indicator()
-    stock_data[f'MA{ma_long_period}'] = SMAIndicator(stock_data['Close'], window=ma_long_period).sma_indicator()
-    stock_data.dropna(inplace=True)
+def fetch_stock_data(ticker, period="1y", interval="1d"):
+    """
+    Fetch historical stock data using Polygon.io API with diagnostics.
+    """
+    print(f"📡 Fetching: {ticker} | Period: {period} | Interval: {interval}")
 
-    stock_data['buy_signal'] = evaluate_condition(stock_data, buy_condition)
-    stock_data['sell_signal'] = evaluate_condition(stock_data, sell_condition)
-
-    positions = []
-    buy_price = None
-    total_profit_loss = 0
-
-    for index, row in stock_data.iterrows():
-        if row['buy_signal'] and buy_price is None:
-            buy_price = row['Close']
-            positions.append({"type": "buy", "price": buy_price, "date": index.strftime('%Y-%m-%d')})
-        elif row['sell_signal'] and buy_price is not None:
-            sell_price = row['Close']
-            profit_loss = sell_price - buy_price
-            total_profit_loss += profit_loss
-            positions.append({
-                "type": "sell", "price": sell_price, "date": index.strftime('%Y-%m-%d'),
-                "profit_loss": profit_loss
-            })
-            buy_price = None
-
-    results = {
-        "ticker": ticker,
-        "total_profit_loss": total_profit_loss,
-        "buy_signals": [p for p in positions if p["type"] == "buy"],
-        "sell_signals": [p for p in positions if p["type"] == "sell"]
+    interval_map = {
+        "1m": ("minute", 1),
+        "5m": ("minute", 5),
+        "15m": ("minute", 15),
+        "30m": ("minute", 30),
+        "1h": ("hour", 1),
+        "1d": ("day", 1),
+        "1wk": ("week", 1),
+        "1mo": ("month", 1),
     }
 
-    return jsonify(results)
-    
-# Prepare data for training
-def prepare_data(ticker, period, interval):
-    df = yf.download(ticker, period=period, interval=interval)
-    if df.empty:
-        raise ValueError("No data fetched from yfinance.")
-    df = df[['Open', 'High', 'Low', 'Close', 'Volume']]
-    print(f"Data fetched for {ticker} with period {period} and interval {interval}: {df.shape}")
+    if interval not in interval_map:
+        print("❌ Invalid interval")
+        return pd.DataFrame()
 
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    scaled_data = scaler.fit_transform(df)
+    timeframe, multiplier = interval_map[interval]
+    start_date, end_date = map_period_to_dates(period)
 
-    X_train, y_train = [], []
-    for i in range(60, len(scaled_data)):
-        X_train.append(scaled_data[i-60:i])
-        y_train.append(scaled_data[i, 3])
-    
-    X_train, y_train = np.array(X_train), np.array(y_train)
-    X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 5))
-
-    return X_train, y_train, scaler
-
-# Build LSTM model
-def build_model(input_shape=(60,5)):
-    model = tf.keras.Sequential([
-        tf.keras.layers.LSTM(units=50, return_sequences=True, input_shape=input_shape),
-        tf.keras.layers.LSTM(units=50, return_sequences=False),
-        tf.keras.layers.Dense(units=25),
-        tf.keras.layers.Dense(units=1)
-    ])
-    model.compile(optimizer='adam', loss='mean_squared_error')
-    return model
-
-# Train the model and save it
-def train_model(ticker, period, interval):
-    X_train, y_train, scaler = prepare_data(ticker, period, interval)
-    model = build_model()
-    model.fit(X_train, y_train, batch_size=1, epochs=1)
-    model.save(f'{ticker}_model.h5')
-    return scaler
-
-# Predict stock price
-def predict(ticker, scaler):
-    model = tf.keras.models.load_model(f'{ticker}_model.h5')
-    df = yf.download(ticker, period='60d', interval='1d')
-    if df.empty:
-        raise ValueError("No data fetched from yfinance for prediction.")
-    
-    df = df[['Open', 'High', 'Low', 'Close', 'Volume']]
-
-    last_60_days = df[-60:].values
-    last_60_days_scaled = scaler.transform(last_60_days)
-
-    X_test = []
-    X_test.append(last_60_days_scaled)
-    X_test = np.array(X_test)
-    X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 5))
-
-    # תחזית מחירים
-    pred_price = model.predict(X_test)
-
-    # שחרור הנרמול אך ורק עבור עמודת מחיר הסגירה
-    pred_price = scaler.inverse_transform(
-        np.concatenate([np.zeros((pred_price.shape[0], 4)), pred_price], axis=1)
-    )[:, 3]  # השאר רק את מחיר הסגירה
-
-    return pred_price[0]
-
-@app.route('/api/predict_stock', methods=['GET'])
-def predict_stock():
-    ticker = request.args.get('ticker')
-    period = request.args.get('period', '1y')
-    interval = request.args.get('interval', '1d')
-
-    if not ticker:
-        return jsonify({'error': 'Ticker is required'}), 400
+    url = (
+        f"https://api.polygon.io/v2/aggs/ticker/{ticker.upper()}/range/"
+        f"{multiplier}/{timeframe}/{start_date}/{end_date}"
+        f"?adjusted=true&sort=asc&limit=5000&apiKey={POLYGON_API_KEY}"
+    )
 
     try:
-        # Train and save scaler
-        scaler = train_model(ticker, period, interval)
-        # Predict using the trained model
-        predicted_price = predict(ticker, scaler)
-        return jsonify({'ticker': ticker, 'predicted_price': float(predicted_price)})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        response = requests.get(url)
+        data = response.json()
 
+        if "results" not in data or not data["results"]:
+            print("⚠️ No results found")
+            return pd.DataFrame()
+
+        df = pd.DataFrame(data["results"])
+        df["t"] = pd.to_datetime(df["t"], unit="ms")
+        df.set_index("t", inplace=True)
+
+        df.rename(columns={
+            "o": "Open", "h": "High", "l": "Low",
+            "c": "Close", "v": "Volume"
+        }, inplace=True)
+
+        df = df[["Open", "High", "Low", "Close", "Volume"]]
+        actual_start = df.index.min().strftime("%Y-%m-%d")
+        actual_end = df.index.max().strftime("%Y-%m-%d")
+
+        print(f"   ✅ Received {len(df)} rows from {actual_start} to {actual_end}")
+
+        # בדיקה אם קיבלנו פחות משנה למרות שביקשנו יותר
+        requested_years = (datetime.strptime(end_date, "%Y-%m-%d") - datetime.strptime(start_date, "%Y-%m-%d")).days // 365
+        actual_days = (df.index.max() - df.index.min()).days
+        if requested_years >= 5 and actual_days < 365:
+            print("   ⚠️ Data range seems truncated. Check if ticker is new or limited by Polygon.")
+
+        return df
+
+    except Exception as e:
+        print(f"❌ Error fetching data: {e}")
+        return pd.DataFrame()
+
+
+
+
+def calculate_moving_averages(data, short_window, long_window):
+    """
+    Adds moving averages to the stock data.
+    """
+    print(f"Calculating moving averages: MA{short_window}, MA{long_window}")
+    print(f"Data before adding moving averages:\n{data.head()}")
+
+    data[f"MA{short_window}"] = data["Close"].rolling(window=short_window).mean()
+    data[f"MA{long_window}"] = data["Close"].rolling(window=long_window).mean()
+
+    print(f"Data after adding moving averages:\n{data[[f'MA{short_window}', f'MA{long_window}']].head()}")
+    return data
+
+
+
+def evaluate_signals(data, short_ma, long_ma):
+    """
+    Evaluates buy and sell signals based on moving averages.
+    """
+    print(f"Evaluating signals: {short_ma} > {long_ma}, {short_ma} < {long_ma}")
+    print(f"Data before evaluating signals:\n{data[[short_ma, long_ma]].head()}")
+
+    data["buy_signal"] = data[short_ma] > data[long_ma]
+    data["sell_signal"] = data[short_ma] < data[long_ma]
+
+    print(f"Buy signals:\n{data['buy_signal'].value_counts()}")
+    print(f"Sell signals:\n{data['sell_signal'].value_counts()}")
+    return data
+
+
+
+def simulate_strategy(data, indicator=None, short_ma=None, long_ma=None):
+    """
+    Simulates a trading strategy and calculates profit/loss based on signals or indicators.
+    """
+    print(f"Simulating strategy on data with indicator: {indicator}, short_ma: {short_ma}, long_ma: {long_ma}")
+    positions = []
+    total_profit_loss = 0
+    buy_price = None
+
+    for index, row in data.iterrows():
+         # Buy signal based on moving averages or selected indicator
+        if indicator == "macd" and "MACD" in row and "Signal_Line" in row:
+            if row["MACD"] > row["Signal_Line"] and not buy_price:
+                buy_price = row["Close"]
+                positions.append({"type": "buy", "price": buy_price, "date": index.strftime('%Y-%m-%d'), "profit_loss": None})
+        elif indicator == "rsi" and "RSI" in row:
+            if row["RSI"] < 30 and not buy_price:
+                buy_price = row["Close"]
+                positions.append({"type": "buy", "price": buy_price, "date": index.strftime('%Y-%m-%d'), "profit_loss": None})
+        elif short_ma and long_ma:
+            if row[f"MA{short_ma}"] > row[f"MA{long_ma}"] and not buy_price:
+                buy_price = row["Close"]
+                positions.append({"type": "buy", "price": buy_price, "date": index.strftime('%Y-%m-%d'), "profit_loss": None})
+
+        # Sell signal
+        if indicator == "macd" and "MACD" in row and "Signal_Line" in row:
+            if row["MACD"] < row["Signal_Line"] and buy_price:
+                sell_price = row["Close"]
+                profit_loss = sell_price - buy_price
+                total_profit_loss += profit_loss
+                positions.append({
+                    "type": "sell", "price": sell_price, "date": index.strftime('%Y-%m-%d'),
+                    "profit_loss": profit_loss
+                })
+                buy_price = None
+        elif indicator == "rsi" and "RSI" in row:
+            if row["RSI"] > 70 and buy_price:
+                sell_price = row["Close"]
+                profit_loss = sell_price - buy_price
+                total_profit_loss += profit_loss
+                positions.append({
+                    "type": "sell", "price": sell_price, "date": index.strftime('%Y-%m-%d'),
+                    "profit_loss": profit_loss
+                })
+                buy_price = None
+        elif short_ma and long_ma:
+            if row[f"MA{short_ma}"] < row[f"MA{long_ma}"] and buy_price:
+                sell_price = row["Close"]
+                profit_loss = sell_price - buy_price
+                total_profit_loss += profit_loss
+                positions.append({
+                    "type": "sell", "price": sell_price, "date": index.strftime('%Y-%m-%d'),
+                    "profit_loss": profit_loss
+                })
+                buy_price = None
+
+    print(f"Final positions: {positions}")
+    print(f"Total Profit/Loss: {total_profit_loss}")
+    return positions, total_profit_loss
+
+def calculate_macd(data, short_period=12, long_period=26, signal_period=9):
+    """
+    Calculates MACD and Signal line for the stock data.
+    """
+    print("Calculating MACD")
+    short_ema = data['Close'].ewm(span=short_period, adjust=False).mean()
+    long_ema = data['Close'].ewm(span=long_period, adjust=False).mean()
+    data['MACD'] = short_ema - long_ema
+    data['Signal_Line'] = data['MACD'].ewm(span=signal_period, adjust=False).mean()
+    print("MACD calculated successfully")
+    return data
+
+def calculate_rsi(data, period=14):
+    """
+    Calculates RSI (Relative Strength Index).
+    """
+    print("Calculating RSI")
+    delta = data['Close'].diff()
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
+
+    avg_gain = gain.rolling(window=period).mean()
+    avg_loss = loss.rolling(window=period).mean()
+
+    rs = avg_gain / avg_loss
+    data['RSI'] = 100 - (100 / (1 + rs))
+    print("RSI calculated successfully")
+    return data
+
+def apply_indicators(data, indicator):
+    """
+    Applies the selected indicator to the stock data.
+    """
+    if indicator == "macd":
+        return calculate_macd(data)
+    elif indicator == "rsi":
+        return calculate_rsi(data)
+    elif indicator == "ema":
+        data['EMA'] = data['Close'].ewm(span=20, adjust=False).mean()
+        return data
+    else:
+        return data  # If no indicator is selected, return data as is.
+
+# -----------------------------------------------
+# מסלול API לבדיקת אסטרטגיה
+# -----------------------------------------------
+
+@app.route('/api/strategy', methods=['POST'])
+def strategy_test():
+    """
+    API endpoint to test a stock trading strategy.
+    """
+    data = request.get_json()
+    ticker = data.get("ticker")
+    short_ma = data.get("ma_short")
+    long_ma = data.get("ma_long")
+    period = data.get("period", "1y")
+    interval = data.get("interval", "1d")
+    indicator = data.get("indicator", "none")
+
+    print(f"Received request: Ticker = {ticker}, Short MA = {short_ma}, Long MA = {long_ma}, Period = {period}, Interval = {interval}, Indicator = {indicator}")
+
+    if not ticker:
+        return jsonify({"error": "Ticker is required"}), 400
+
+    try:
+        # Fetch stock data
+        stock_data = fetch_stock_data(ticker, period, interval)
+        if stock_data.empty:
+            return jsonify({"error": "No stock data found or required columns are missing"}), 404
+
+        # Apply indicators
+        stock_data = apply_indicators(stock_data, indicator)
+
+        # Apply moving averages only if provided
+        if short_ma and long_ma:
+            short_ma, long_ma = int(short_ma), int(long_ma)
+            stock_data = calculate_moving_averages(stock_data, short_ma, long_ma)
+            stock_data = evaluate_signals(stock_data, f"MA{short_ma}", f"MA{long_ma}")
+
+        # Simulate strategy based on indicator or moving averages
+        positions, total_profit_loss = simulate_strategy(
+            stock_data,
+            indicator=indicator,
+            short_ma=short_ma if indicator == "none" else None,
+            long_ma=long_ma if indicator == "none" else None
+        )
+        
+            
+        # Prepare results
+        results = {
+            "ticker": ticker,
+            "total_profit_loss": total_profit_loss,
+            "positions": positions,
+            "indicator_effect": f"Indicator '{indicator}' applied and influenced the results." if indicator != "none" else "Moving averages applied and influenced the results.",
+        }
+        return jsonify(results)
+    except Exception as e:
+        print(f"Error in strategy_test: {e}")
+        return jsonify({"error": str(e)}), 500
+
+    
+
+# 🔑 API Key ל-Polygon.io (החלף במפתח האישי שלך)
 @app.route('/api/stock/<ticker>')
 def get_stock_data(ticker):
     interval = request.args.get('interval', '1d')
-    stock = yf.Ticker(ticker)
+
+    print(f"\n=== Fetching Stock Data from Polygon.io ===")
+    print(f"Ticker: {ticker}, Interval: {interval}")
+
+    interval_map = {
+        "1m": "minute", "2m": "minute", "5m": "minute", "15m": "minute", "30m": "minute",
+        "1h": "hour", "1d": "day", "5d": "day", "1wk": "week", "1mo": "month", "3mo": "month"
+    }
+
+    if interval not in interval_map:
+        return jsonify({"error": "Invalid interval"}), 400
+
+    timeframe = interval_map[interval]
+
+    # 💡 טווח תאריכים דינמי לפי אינטרוול
+    now = datetime.now()
+    if timeframe == "minute":
+        start_date = (now - timedelta(days=5)).strftime("%Y-%m-%d")  # 5 ימים אחרונים
+    elif timeframe == "hour":
+        start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")  # חודש
+    elif timeframe == "day":
+        start_date = (now - timedelta(days=730)).strftime("%Y-%m-%d")  # שנתיים אחרונות
+    else:
+        start_date = "2010-01-01"
+
+    end_date = now.strftime("%Y-%m-%d")
+
+    url = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/1/{timeframe}/{start_date}/{end_date}?apiKey={POLYGON_API_KEY}"
 
     try:
-        # הגבלת התקופה לאינטרוולים קטנים (עד שנתיים)
-        if interval in ['1m']:
-            hist = stock.history(period="7d", interval=interval)
-        elif interval in ['2m', '5m' ,'15m', '30m']:    
-            hist = stock.history(period="60d", interval=interval)
-        elif interval in ['1h']:    
-            hist = stock.history(period="730d", interval=interval)    
-        else:
-            hist = stock.history(period="max", interval=interval)
-        
-        # If no data returned, raise an error
-        if hist.empty:
-            return jsonify({"error": "No data found for the specified interval"}), 404
+        response = requests.get(url)
+        data = response.json()
 
-        # Handle non-DateTime indices
-        if not hasattr(hist.index, 'strftime'):
-            hist.index = hist.index.to_pydatetime()
-        
-        data = {
-            'dates': hist.index.strftime('%Y-%m-%d %H:%M:%S').tolist(),
-            'prices': hist['Close'].tolist(),
-            'open': hist['Open'].tolist(),
-            'high': hist['High'].tolist(),
-            'low': hist['Low'].tolist(),
+        if "results" not in data or not data["results"]:
+            print(f"ERROR: No data found for {ticker}")
+            return jsonify({"error": "No data found"}), 404
+
+        prices = data["results"]
+        processed_data = {
+            "dates": [item["t"] for item in prices],
+            "open": [item["o"] for item in prices],
+            "high": [item["h"] for item in prices],
+            "low": [item["l"] for item in prices],
+            "prices": [item["c"] for item in prices],
         }
-        
-        return jsonify(data)
-    except Exception as e:
-        print(f"Error fetching data: {e}")
-        return jsonify({"error": str(e)}), 500
 
+        return jsonify(processed_data)
+
+    except Exception as e:
+        print(f"Error fetching data from Polygon.io: {e}")
+        return jsonify({"error": str(e)}), 500
+    
 if __name__ == "__main__":
+    print("== Registered Flask Routes ==")
+    print(app.url_map)
     app.run(port=5000,debug=True)

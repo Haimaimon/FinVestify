@@ -2,6 +2,11 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
+import {
+  Box,
+  IconButton,
+} from "@mui/material";
+import { OpenInNew } from "@mui/icons-material";
 
 const fetchNews = async () => {
   const { data } = await axios.get('https://newsapi.org/v2/top-headlines', {
@@ -26,6 +31,17 @@ function NewsFeed() {
           <div key={index} className="news-article">
             <h3>{article.title}</h3>
             <p>{article.description}</p>
+            <strong>{article.publishedAt}</strong>
+            <p sx={{ padding: "10px" }}>
+                  <IconButton
+                    color="primary"
+                    href={article.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <OpenInNew />
+                  </IconButton>
+            </p>
           </div>
         ))}
       </div>

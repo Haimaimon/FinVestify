@@ -12,7 +12,7 @@ const SentimentAnalysis = () => {
   const fetchAnalysis = async () => {
     setLoading(true);
     try {
-      const response = await axios.post("http://localhost:5000/api/historical-sentiment", {
+      const response = await axios.post("http://127.0.0.1:5000/api/historical-sentiment", {
         stock_name: stockName,
       });
 
@@ -48,7 +48,12 @@ const SentimentAnalysis = () => {
   return (
     <div className="sentiment-container">
       <header>
-        <h1>📊 Historical Sentiment Analysis</h1>
+      <h1>📊 Historical Sentiment Analysis</h1>
+        <p style={{ fontSize: "1rem", marginBottom: "1.5rem", color: "#444" }}>
+          This feature analyzes recent news articles related to a stock, classifies their sentiment using AI, and evaluates whether the stock price reacted accordingly.
+          <br />
+          <strong>You’ll see:</strong> buy/sell signals from news sentiment, price movement response, and the success rate of sentiment predicting price change.
+        </p>
       </header>
       <div className="input-container">
         <TextField

@@ -61,18 +61,20 @@ const sellStock = async (req, res) => {
             if (existingPosition.shares === 0) {
                 portfolio.positions = portfolio.positions.filter(pos => pos.ticker !== ticker);
             }
+
+            // Update cash balance based on profit or loss
+            portfolio.cash_balance += profitOrLoss; // Add profit or subtract loss
+        } else if (existingPosition && existingPosition.position_type === 'Short') {
+            // Updating existing Short Position
+            existingPosition.shares += sharesNum;
+            existingPosition.average_price = ((existingPosition.average_price * existingPosition.shares) + (priceNum * sharesNum)) / (existingPosition.shares + sharesNum);
+            portfolio.transactions.push({ ticker, shares: sharesNum, price: priceNum, type: 'Sell', profitOrLoss: 0 });
         } else {
-            // Initiating or Adding to Short Position
-            if (existingPosition && existingPosition.position_type === 'Short') {
-                existingPosition.shares += sharesNum;
-                existingPosition.average_price = ((existingPosition.average_price * existingPosition.shares) + (priceNum * sharesNum)) / (existingPosition.shares + sharesNum);
-            } else {
-                portfolio.positions.push({ ticker, shares: sharesNum, average_price: priceNum, position_type: 'Short' });
-            }
+            // Initiating new Short Position
+            portfolio.positions.push({ ticker, shares: sharesNum, average_price: priceNum, position_type: 'Short' });
             portfolio.transactions.push({ ticker, shares: sharesNum, price: priceNum, type: 'Sell', profitOrLoss: 0 });
         }
 
-        portfolio.cash_balance += sharesNum * priceNum;
         await portfolio.save();
         res.status(200).json(portfolio);
     } catch (error) {
@@ -80,5 +82,5 @@ const sellStock = async (req, res) => {
     }
 };
 
-
 module.exports = { buyStock, sellStock };
+
